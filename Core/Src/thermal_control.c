@@ -90,8 +90,17 @@ ThermalControl_Status ThermalControl_Stop(void)
   s_snapshot.mode = THERMAL_CONTROL_MODE_OFF;
   s_snapshot.enabled = 0u;
   s_snapshot.faulted = 0u;
+  s_snapshot.target_temperature_c = 0.0f;
+  s_snapshot.measured_temperature_c = 0.0f;
+  s_snapshot.temperature_error_c = 0.0f;
+  s_snapshot.temperature_integral_a = 0.0f;
   s_snapshot.target_current_a = 0.0f;
+  s_snapshot.measured_current_a = 0.0f;
+  s_snapshot.load_voltage_v = 0.0f;
+  s_snapshot.power_w = 0.0f;
+  s_snapshot.resistance_ohm = 0.0f;
   s_snapshot.status = status;
+  s_last_service_ms = 0u;
   thermal_control_reset_temperature_pi();
 
   return status;
