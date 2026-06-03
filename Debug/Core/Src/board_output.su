@@ -1,0 +1,10 @@
+../Core/Src/board_output.c:38:20:BoardOutput_Init	16	static
+../Core/Src/board_output.c:56:20:BoardOutput_SetDriveVoltage	24	static
+../Core/Src/board_output.c:84:20:BoardOutput_SetZero	8	static
+../Core/Src/board_output.c:94:20:BoardOutput_RunR42SelfTest	32	static
+../Core/Src/board_output.c:185:7:BoardOutput_GetMaxDriveVoltage	4	static
+../Core/Src/board_output.c:190:13:BoardOutput_StatusText	16	static
+../Core/Src/board_output.c:215:27:board_output_from_ad5667	16	static
+../Core/Src/board_output.c:231:27:board_output_from_measure	16	static
+../Core/Src/board_output.c:250:13:board_output_safe_idle	8	static
+../Core/Src/board_output.c:256:14:board_output_absf	16	static

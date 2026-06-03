@@ -1,0 +1,11 @@
+../Core/Src/board_protocol.c:37:6:BoardProtocol_Init	4	static
+../Core/Src/board_protocol.c:42:6:BoardProtocol_Poll	16	static
+../Core/Src/board_protocol.c:76:13:board_protocol_process_line	40	static
+../Core/Src/board_protocol.c:175:13:board_protocol_print_help	8	static
+../Core/Src/board_protocol.c:182:13:board_protocol_print_temp	32	static
+../Core/Src/board_protocol.c:203:13:board_protocol_print_control	160	static
+../Core/Src/board_protocol.c:226:13:board_protocol_print_ids	16	static
+../Core/Src/board_protocol.c:246:13:board_protocol_print_r42	96	static
+../Core/Src/board_protocol.c:265:12:board_protocol_parse_i32	32	static
+../Core/Src/board_protocol.c:312:16:board_protocol_float_to_milli	16	static
+../Core/Src/board_protocol.c:322:16:board_protocol_float_to_micro	16	static

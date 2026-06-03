@@ -1,0 +1,12 @@
+../Core/Src/ad7190.c:45:15:AD7190_Init	8
+../Core/Src/ad7190.c:82:15:AD7190_Reset	4
+../Core/Src/ad7190.c:99:15:AD7190_ReadId	2
+../Core/Src/ad7190.c:109:15:AD7190_ReadStatus	2
+../Core/Src/ad7190.c:119:15:AD7190_Configure	7
+../Core/Src/ad7190.c:158:15:AD7190_ReadSingle	6
+../Core/Src/ad7190.c:198:7:AD7190_ConvertBipolarCode	1
+../Core/Src/ad7190.c:206:22:ad7190_read_register	8
+../Core/Src/ad7190.c:237:22:ad7190_write_register	7
+../Core/Src/ad7190.c:265:22:ad7190_write_mode	1
+../Core/Src/ad7190.c:270:22:ad7190_wait_ready	7
+../Core/Src/ad7190.c:304:16:ad7190_gain_value	7
