@@ -1,8 +1,0 @@
-../Core/Src/chip_measure.c:43:20:ChipMeasure_Init	24	static
-../Core/Src/chip_measure.c:86:20:ChipMeasure_ReadAdcIds	24	static
-../Core/Src/chip_measure.c:110:20:ChipMeasure_SelectPath	16	static
-../Core/Src/chip_measure.c:132:20:ChipMeasure_ReadCurrent	40	static
-../Core/Src/chip_measure.c:154:20:ChipMeasure_ReadLoadVoltage	48	static
-../Core/Src/chip_measure.c:186:20:ChipMeasure_ReadInternalR42	32	static
-../Core/Src/chip_measure.c:237:27:chip_measure_from_ad7190_status	16	static
-../Core/Src/chip_measure.c:255:14:chip_measure_absf	16	static

@@ -1,7 +1,0 @@
-../Core/Src/sht3x.c:20:14:SHT3X_Init	4
-../Core/Src/sht3x.c:33:14:SHT3X_Read	7
-../Core/Src/sht3x.c:77:14:SHT3X_SoftReset	2
-../Core/Src/sht3x.c:90:13:SHT3X_StatusText	6
-../Core/Src/sht3x.c:109:21:sht3x_write_command	3
-../Core/Src/sht3x.c:128:21:sht3x_from_hal	3
-../Core/Src/sht3x.c:143:16:sht3x_crc8	4

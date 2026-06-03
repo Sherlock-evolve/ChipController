@@ -1,8 +1,0 @@
-../Core/Src/chip_measure.c:43:20:ChipMeasure_Init	5
-../Core/Src/chip_measure.c:86:20:ChipMeasure_ReadAdcIds	5
-../Core/Src/chip_measure.c:110:20:ChipMeasure_SelectPath	3
-../Core/Src/chip_measure.c:132:20:ChipMeasure_ReadCurrent	4
-../Core/Src/chip_measure.c:154:20:ChipMeasure_ReadLoadVoltage	5
-../Core/Src/chip_measure.c:186:20:ChipMeasure_ReadInternalR42	6
-../Core/Src/chip_measure.c:237:27:chip_measure_from_ad7190_status	5
-../Core/Src/chip_measure.c:255:14:chip_measure_absf	2

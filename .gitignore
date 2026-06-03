@@ -1,0 +1,21 @@
+# Build output
+Debug/
+
+# STM32CubeIDE / Eclipse
+.settings/language.settings.xml
+.settings/org.eclipse.core.resources.prefs
+
+# CubeMX generated metadata (regenerated each code generation)
+.mxproject
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# Claude tool artifacts
+.agents/
+.codex/
+
+# OS
+.DS_Store
+Thumbs.db

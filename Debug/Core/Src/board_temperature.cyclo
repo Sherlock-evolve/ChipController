@@ -1,5 +1,0 @@
-../Core/Src/board_temperature.c:26:25:BoardTemperature_Init	3
-../Core/Src/board_temperature.c:40:25:BoardTemperature_Read	4
-../Core/Src/board_temperature.c:72:9:BoardTemperature_IsPresent	1
-../Core/Src/board_temperature.c:77:13:BoardTemperature_StatusText	7
-../Core/Src/board_temperature.c:98:32:board_temperature_from_sht3x	5
