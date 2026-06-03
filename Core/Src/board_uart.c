@@ -16,6 +16,7 @@
 
 #define BOARD_UART_DEFAULT_TIMEOUT_MS 100u
 #define BOARD_UART_PRINTF_BUFFER_SIZE 384u
+#define BOARD_UART_RS485_TURNAROUND_DELAY_MS 1u
 
 static UART_HandleTypeDef *s_debug_uart;
 static UART_HandleTypeDef *s_rs485_uart;
@@ -60,12 +61,14 @@ BoardUart_Status BoardUart_Write(BoardUart_Port port, const uint8_t *data, size_
   if (port == BOARD_UART_PORT_RS485)
   {
     board_uart_rs485_set_tx(1u);
+    HAL_Delay(BOARD_UART_RS485_TURNAROUND_DELAY_MS);
   }
 
   hal_status = HAL_UART_Transmit(uart, (uint8_t *)data, (uint16_t)len, timeout_ms);
 
   if (port == BOARD_UART_PORT_RS485)
   {
+    HAL_Delay(BOARD_UART_RS485_TURNAROUND_DELAY_MS);
     board_uart_rs485_set_tx(0u);
   }
 
@@ -113,6 +116,7 @@ BoardUart_Status BoardUart_Printf(BoardUart_Port port, const char *format, ...)
 BoardUart_Status BoardUart_Read(BoardUart_Port port, uint8_t *data, size_t len, uint32_t timeout_ms)
 {
   UART_HandleTypeDef *uart;
+  HAL_StatusTypeDef hal_status;
 
   if ((data == NULL) || (len == 0u) || (len > UINT16_MAX))
   {
@@ -130,7 +134,13 @@ BoardUart_Status BoardUart_Read(BoardUart_Port port, uint8_t *data, size_t len, 
     board_uart_rs485_set_tx(0u);
   }
 
-  return board_uart_from_hal(HAL_UART_Receive(uart, data, (uint16_t)len, timeout_ms));
+  hal_status = HAL_UART_Receive(uart, data, (uint16_t)len, timeout_ms);
+  if (hal_status == HAL_ERROR)
+  {
+    __HAL_UART_CLEAR_FLAG(uart, UART_CLEAR_PEF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_OREF);
+  }
+
+  return board_uart_from_hal(hal_status);
 }
 
 int __io_putchar(int ch)

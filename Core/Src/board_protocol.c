@@ -56,6 +56,7 @@ void BoardProtocol_Poll(void)
       if (s_line_len > 0u)
       {
         s_line[s_line_len] = '\0';
+        BoardUart_Printf(BOARD_UART_PORT_DEBUG, "RS485 RX: %s\r\n", s_line);
         board_protocol_process_line(s_line);
         s_line_len = 0u;
       }

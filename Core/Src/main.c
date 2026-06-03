@@ -170,6 +170,13 @@ static void App_ProcessDebugLine(const char *line)
   {
     App_PrintTemperature();
   }
+  else if (strcmp(line, "rs485 tx") == 0)
+  {
+    BoardUart_Status status;
+
+    status = BoardUart_WriteString(BOARD_UART_PORT_RS485, "OK RS485_DEBUG_TX\r\n", 100u);
+    BoardUart_Printf(BOARD_UART_PORT_DEBUG, "RS485 debug TX: %d\r\n", (int)status);
+  }
   else if (strcmp(line, "tc status") == 0)
   {
     App_PrintThermalControl();
@@ -234,6 +241,7 @@ static void App_PrintHelp(void)
                         "  zero     - force DAC outputs to 0V\r\n"
                         "  r42test  - run safe internal 30-ohm self-test\r\n"
                         "  temp     - read optional SHT3x temperature sensor\r\n"
+                        "  rs485 tx - send a test line on CN4 RS485\r\n"
                         "  tc status      - show control loop state\r\n"
                         "  tc stop        - stop control and zero output\r\n"
                         "  tc current <mA> - start current loop\r\n"
