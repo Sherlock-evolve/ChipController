@@ -39,6 +39,8 @@
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
 #define APP_DEBUG_LINE_SIZE 64u
+#define APP_ADC_SAMPLE_DEFAULT_COUNT 10u
+#define APP_ADC_SAMPLE_MAX_COUNT 100u
 
 /* USER CODE END PD */
 
@@ -79,7 +81,9 @@ static void App_ProcessDebugLine(const char *line);
 static void App_PrintHelp(void);
 static void App_PrintTemperature(void);
 static void App_PrintThermalControl(void);
+static void App_PrintAdcSamples(uint32_t count);
 static uint8_t App_ParseFloat(const char *text, float *value);
+static uint8_t App_ParseUint32(const char *text, uint32_t *value);
 static int32_t App_FloatToMilli(float value);
 
 /* USER CODE END PFP */
@@ -177,6 +181,26 @@ static void App_ProcessDebugLine(const char *line)
     status = BoardUart_WriteString(BOARD_UART_PORT_RS485, "OK RS485_DEBUG_TX\r\n", 100u);
     BoardUart_Printf(BOARD_UART_PORT_DEBUG, "RS485 debug TX: %d\r\n", (int)status);
   }
+  else if (strcmp(line, "adcs") == 0)
+  {
+    App_PrintAdcSamples(APP_ADC_SAMPLE_DEFAULT_COUNT);
+  }
+  else if (strncmp(line, "adcs ", 5u) == 0)
+  {
+    uint32_t count = 0u;
+
+    if ((App_ParseUint32(&line[5], &count) == 0u) ||
+        (count == 0u) ||
+        (count > APP_ADC_SAMPLE_MAX_COUNT))
+    {
+      BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                       "Bad argument. Usage: adcs <1-%lu>\r\n",
+                       (unsigned long)APP_ADC_SAMPLE_MAX_COUNT);
+      return;
+    }
+
+    App_PrintAdcSamples(count);
+  }
   else if (strcmp(line, "tc status") == 0)
   {
     App_PrintThermalControl();
@@ -242,6 +266,7 @@ static void App_PrintHelp(void)
                         "  r42test  - run safe internal 30-ohm self-test\r\n"
                         "  temp     - read optional SHT3x temperature sensor\r\n"
                         "  rs485 tx - send a test line on CN4 RS485\r\n"
+                        "  adcs <n> - read synchronized AD7190 samples\r\n"
                         "  tc status      - show control loop state\r\n"
                         "  tc stop        - stop control and zero output\r\n"
                         "  tc current <mA> - start current loop\r\n"
@@ -297,6 +322,51 @@ static void App_PrintThermalControl(void)
                    (long)App_FloatToMilli(snapshot.load_voltage_v),
                    (long)App_FloatToMilli(snapshot.power_w * 1000.0f),
                    (long)App_FloatToMilli(snapshot.resistance_ohm));
+}
+
+static void App_PrintAdcSamples(uint32_t count)
+{
+  uint32_t index;
+
+  BoardUart_Printf(BOARD_UART_PORT_DEBUG, "AD7190 sync samples: count=%lu\r\n", (unsigned long)count);
+
+  for (index = 0u; index < count; index++)
+  {
+    ChipMeasure_SyncSample sample;
+    ChipMeasure_Status status;
+    float current_abs_a;
+    float voltage_abs_v;
+    float power_w;
+    float resistance_ohm;
+
+    status = ChipMeasure_ReadSynchronized(CHIP_MEASURE_PATH_EXTERNAL, &sample);
+    if (status != CHIP_MEASURE_OK)
+    {
+      BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                       "adc %lu: status=%s (%d)\r\n",
+                       (unsigned long)(index + 1u),
+                       App_ChipMeasureStatusText(status),
+                       (int)status);
+      return;
+    }
+
+    current_abs_a = (sample.current_a < 0.0f) ? -sample.current_a : sample.current_a;
+    voltage_abs_v = (sample.load_voltage_v < 0.0f) ? -sample.load_voltage_v : sample.load_voltage_v;
+    power_w = current_abs_a * voltage_abs_v;
+    resistance_ohm = (current_abs_a > 0.000001f) ? (voltage_abs_v / current_abs_a) : 0.0f;
+
+    BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                     "adc %lu: Isense=%ld uV I=%ld uA Vraw=%ld mV Vload=%ld mV P=%ld uW R=%ld mOhm st=0x%02X/0x%02X\r\n",
+                     (unsigned long)(index + 1u),
+                     (long)App_FloatToMilli(sample.current_sense_voltage_v * 1000.0f),
+                     (long)App_FloatToMilli(sample.current_a * 1000.0f),
+                     (long)App_FloatToMilli(sample.load_voltage_raw_v),
+                     (long)App_FloatToMilli(sample.load_voltage_v),
+                     (long)App_FloatToMilli(power_w * 1000.0f),
+                     (long)App_FloatToMilli(resistance_ohm),
+                     sample.current_adc_status,
+                     sample.voltage_adc_status);
+  }
 }
 
 static uint8_t App_ParseFloat(const char *text, float *value)
@@ -356,6 +426,42 @@ static uint8_t App_ParseFloat(const char *text, float *value)
   }
 
   *value = result * sign;
+  return 1u;
+}
+
+static uint8_t App_ParseUint32(const char *text, uint32_t *value)
+{
+  uint32_t result = 0u;
+  uint8_t saw_digit = 0u;
+
+  if ((text == NULL) || (value == NULL))
+  {
+    return 0u;
+  }
+
+  while (*text == ' ')
+  {
+    text++;
+  }
+
+  while ((*text >= '0') && (*text <= '9'))
+  {
+    saw_digit = 1u;
+    result = (result * 10u) + (uint32_t)(*text - '0');
+    text++;
+  }
+
+  while (*text == ' ')
+  {
+    text++;
+  }
+
+  if ((*text != '\0') || (saw_digit == 0u))
+  {
+    return 0u;
+  }
+
+  *value = result;
   return 1u;
 }
 
