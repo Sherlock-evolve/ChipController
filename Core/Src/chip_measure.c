@@ -38,6 +38,7 @@ static AD7190_Handle s_voltage_adc = {
 };
 
 static ChipMeasure_Status chip_measure_from_ad7190_status(AD7190_Status status);
+static void chip_measure_set_adc_sync(uint8_t released);
 static float chip_measure_absf(float value);
 
 ChipMeasure_Status ChipMeasure_Init(void)
@@ -183,6 +184,93 @@ ChipMeasure_Status ChipMeasure_ReadLoadVoltage(ChipMeasure_Path path,
   return CHIP_MEASURE_OK;
 }
 
+ChipMeasure_Status ChipMeasure_ReadSynchronized(ChipMeasure_Path path, ChipMeasure_SyncSample *sample)
+{
+  AD7190_Reading current_reading;
+  AD7190_Reading voltage_reading;
+  AD7190_Status adc_status;
+  ChipMeasure_Status measure_status;
+  uint8_t current_status = 0u;
+  uint8_t voltage_status = 0u;
+
+  if (sample == NULL)
+  {
+    return CHIP_MEASURE_INVALID_PARAM;
+  }
+
+  sample->current_sense_voltage_v = 0.0f;
+  sample->current_a = 0.0f;
+  sample->load_voltage_raw_v = 0.0f;
+  sample->load_voltage_v = 0.0f;
+  sample->current_adc_status = 0u;
+  sample->voltage_adc_status = 0u;
+
+  measure_status = ChipMeasure_SelectPath(path);
+  if (measure_status != CHIP_MEASURE_OK)
+  {
+    return measure_status;
+  }
+
+  chip_measure_set_adc_sync(0u);
+
+  adc_status = AD7190_StartSingle(&s_current_adc);
+  if (adc_status != AD7190_OK)
+  {
+    chip_measure_set_adc_sync(1u);
+    return chip_measure_from_ad7190_status(adc_status);
+  }
+
+  adc_status = AD7190_StartSingle(&s_voltage_adc);
+  if (adc_status != AD7190_OK)
+  {
+    chip_measure_set_adc_sync(1u);
+    return chip_measure_from_ad7190_status(adc_status);
+  }
+
+  chip_measure_set_adc_sync(1u);
+
+  adc_status = AD7190_WaitReady(&s_current_adc, &current_status);
+  if (adc_status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(adc_status);
+  }
+
+  adc_status = AD7190_WaitReady(&s_voltage_adc, &voltage_status);
+  if (adc_status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(adc_status);
+  }
+
+  adc_status = AD7190_ReadData(&s_current_adc, current_status, &current_reading);
+  if (adc_status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(adc_status);
+  }
+
+  adc_status = AD7190_ReadData(&s_voltage_adc, voltage_status, &voltage_reading);
+  if (adc_status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(adc_status);
+  }
+
+  sample->current_sense_voltage_v = current_reading.voltage;
+  sample->current_a = current_reading.voltage / CHIP_MEASURE_CURRENT_SHUNT_OHM;
+  sample->load_voltage_raw_v = voltage_reading.voltage;
+  sample->current_adc_status = current_reading.status;
+  sample->voltage_adc_status = voltage_reading.status;
+
+  if (path == CHIP_MEASURE_PATH_INTERNAL_R42)
+  {
+    sample->load_voltage_v = -voltage_reading.voltage;
+  }
+  else
+  {
+    sample->load_voltage_v = voltage_reading.voltage;
+  }
+
+  return CHIP_MEASURE_OK;
+}
+
 ChipMeasure_Status ChipMeasure_ReadInternalR42(ChipMeasure_R42Sample *sample)
 {
   ChipMeasure_Status status;
@@ -249,6 +337,29 @@ static ChipMeasure_Status chip_measure_from_ad7190_status(AD7190_Status status)
     case AD7190_ERROR:
     default:
       return CHIP_MEASURE_ERROR;
+  }
+}
+
+static void chip_measure_set_adc_sync(uint8_t released)
+{
+  GPIO_PinState state = (released != 0u) ? GPIO_PIN_SET : GPIO_PIN_RESET;
+
+  if ((s_current_adc.sync_port != NULL) && (s_voltage_adc.sync_port == s_current_adc.sync_port))
+  {
+    HAL_GPIO_WritePin(s_current_adc.sync_port,
+                      s_current_adc.sync_pin | s_voltage_adc.sync_pin,
+                      state);
+    return;
+  }
+
+  if (s_current_adc.sync_port != NULL)
+  {
+    HAL_GPIO_WritePin(s_current_adc.sync_port, s_current_adc.sync_pin, state);
+  }
+
+  if (s_voltage_adc.sync_port != NULL)
+  {
+    HAL_GPIO_WritePin(s_voltage_adc.sync_port, s_voltage_adc.sync_pin, state);
   }
 }
 

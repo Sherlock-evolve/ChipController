@@ -316,36 +316,16 @@ static ThermalControl_Status thermal_control_measure(float *current_a,
                                                      float *resistance_ohm)
 {
   ChipMeasure_Status measure_status;
-  float signed_current_a = 0.0f;
-  float current_sense_v = 0.0f;
-  float signed_load_voltage_v = 0.0f;
-  float raw_load_voltage_v = 0.0f;
+  ChipMeasure_SyncSample sample;
 
-  measure_status = ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
+  measure_status = ChipMeasure_ReadSynchronized(CHIP_MEASURE_PATH_EXTERNAL, &sample);
   if (measure_status != CHIP_MEASURE_OK)
   {
     return thermal_control_from_measure(measure_status);
   }
 
-  measure_status = ChipMeasure_ReadCurrent(&signed_current_a, &current_sense_v);
-  if (measure_status != CHIP_MEASURE_OK)
-  {
-    return thermal_control_from_measure(measure_status);
-  }
-
-  measure_status = ChipMeasure_ReadLoadVoltage(CHIP_MEASURE_PATH_EXTERNAL,
-                                               &signed_load_voltage_v,
-                                               &raw_load_voltage_v);
-  if (measure_status != CHIP_MEASURE_OK)
-  {
-    return thermal_control_from_measure(measure_status);
-  }
-
-  (void)current_sense_v;
-  (void)raw_load_voltage_v;
-
-  *current_a = thermal_control_absf(signed_current_a);
-  *load_voltage_v = thermal_control_absf(signed_load_voltage_v);
+  *current_a = thermal_control_absf(sample.current_a);
+  *load_voltage_v = thermal_control_absf(sample.load_voltage_v);
   *power_w = (*current_a) * (*load_voltage_v);
 
   if (*current_a > THERMAL_CONTROL_MIN_RESISTANCE_CURRENT)

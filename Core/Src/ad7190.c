@@ -39,7 +39,6 @@ static AD7190_Status ad7190_write_register(AD7190_Handle *adc,
                                            uint32_t value,
                                            uint8_t len);
 static AD7190_Status ad7190_write_mode(AD7190_Handle *adc, uint32_t mode);
-static AD7190_Status ad7190_wait_ready(AD7190_Handle *adc, uint8_t *status);
 static uint8_t ad7190_gain_value(AD7190_Gain gain);
 
 AD7190_Status AD7190_Init(AD7190_Handle *adc)
@@ -155,28 +154,59 @@ AD7190_Status AD7190_Configure(AD7190_Handle *adc,
   return ad7190_write_register(adc, AD7190_REG_CONFIG, config, 3u);
 }
 
-AD7190_Status AD7190_ReadSingle(AD7190_Handle *adc, AD7190_Reading *reading)
+AD7190_Status AD7190_StartSingle(AD7190_Handle *adc)
+{
+  if ((adc == NULL) || (adc->hspi == NULL))
+  {
+    return AD7190_INVALID_PARAM;
+  }
+
+  return ad7190_write_mode(adc, AD7190_MODE_SINGLE | AD7190_MODE_INTERNAL_CLOCK | AD7190_MODE_FS_16HZ);
+}
+
+AD7190_Status AD7190_WaitReady(AD7190_Handle *adc, uint8_t *status)
+{
+  uint32_t start;
+  AD7190_Status result;
+
+  if ((adc == NULL) || (status == NULL))
+  {
+    return AD7190_INVALID_PARAM;
+  }
+
+  start = HAL_GetTick();
+
+  do
+  {
+    result = AD7190_ReadStatus(adc, status);
+    if (result != AD7190_OK)
+    {
+      return result;
+    }
+
+    if ((*status & AD7190_STATUS_RDY) == 0u)
+    {
+      if ((*status & (AD7190_STATUS_ERR | AD7190_STATUS_NOREF)) != 0u)
+      {
+        return AD7190_ERROR;
+      }
+
+      return AD7190_OK;
+    }
+  } while ((HAL_GetTick() - start) < adc->timeout_ms);
+
+  return AD7190_TIMEOUT;
+}
+
+AD7190_Status AD7190_ReadData(AD7190_Handle *adc, uint8_t status, AD7190_Reading *reading)
 {
   uint8_t data[3] = {0u};
-  uint8_t status = 0u;
   uint32_t raw;
   AD7190_Status result;
 
   if ((adc == NULL) || (reading == NULL))
   {
     return AD7190_INVALID_PARAM;
-  }
-
-  result = ad7190_write_mode(adc, AD7190_MODE_SINGLE | AD7190_MODE_INTERNAL_CLOCK | AD7190_MODE_FS_16HZ);
-  if (result != AD7190_OK)
-  {
-    return result;
-  }
-
-  result = ad7190_wait_ready(adc, &status);
-  if (result != AD7190_OK)
-  {
-    return result;
   }
 
   result = ad7190_read_register(adc, AD7190_REG_DATA, data, 3u);
@@ -193,6 +223,26 @@ AD7190_Status AD7190_ReadSingle(AD7190_Handle *adc, AD7190_Reading *reading)
   reading->voltage = AD7190_ConvertBipolarCode(raw, adc->vref_volts, adc->gain);
 
   return AD7190_OK;
+}
+
+AD7190_Status AD7190_ReadSingle(AD7190_Handle *adc, AD7190_Reading *reading)
+{
+  uint8_t status = 0u;
+  AD7190_Status result;
+
+  result = AD7190_StartSingle(adc);
+  if (result != AD7190_OK)
+  {
+    return result;
+  }
+
+  result = AD7190_WaitReady(adc, &status);
+  if (result != AD7190_OK)
+  {
+    return result;
+  }
+
+  return AD7190_ReadData(adc, status, reading);
 }
 
 float AD7190_ConvertBipolarCode(uint32_t raw_code, float vref_volts, AD7190_Gain gain)
@@ -265,40 +315,6 @@ static AD7190_Status ad7190_write_register(AD7190_Handle *adc,
 static AD7190_Status ad7190_write_mode(AD7190_Handle *adc, uint32_t mode)
 {
   return ad7190_write_register(adc, AD7190_REG_MODE, mode, 3u);
-}
-
-static AD7190_Status ad7190_wait_ready(AD7190_Handle *adc, uint8_t *status)
-{
-  uint32_t start;
-  AD7190_Status result;
-
-  if ((adc == NULL) || (status == NULL))
-  {
-    return AD7190_INVALID_PARAM;
-  }
-
-  start = HAL_GetTick();
-
-  do
-  {
-    result = AD7190_ReadStatus(adc, status);
-    if (result != AD7190_OK)
-    {
-      return result;
-    }
-
-    if ((*status & AD7190_STATUS_RDY) == 0u)
-    {
-      if ((*status & (AD7190_STATUS_ERR | AD7190_STATUS_NOREF)) != 0u)
-      {
-        return AD7190_ERROR;
-      }
-
-      return AD7190_OK;
-    }
-  } while ((HAL_GetTick() - start) < adc->timeout_ms);
-
-  return AD7190_TIMEOUT;
 }
 
 static uint8_t ad7190_gain_value(AD7190_Gain gain)

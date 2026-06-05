@@ -76,6 +76,9 @@ AD7190_Status AD7190_Configure(AD7190_Handle *adc,
                                uint8_t bipolar,
                                uint8_t buffer_enabled,
                                uint8_t chop_enabled);
+AD7190_Status AD7190_StartSingle(AD7190_Handle *adc);
+AD7190_Status AD7190_WaitReady(AD7190_Handle *adc, uint8_t *status);
+AD7190_Status AD7190_ReadData(AD7190_Handle *adc, uint8_t status, AD7190_Reading *reading);
 AD7190_Status AD7190_ReadSingle(AD7190_Handle *adc, AD7190_Reading *reading);
 
 float AD7190_ConvertBipolarCode(uint32_t raw_code, float vref_volts, AD7190_Gain gain);

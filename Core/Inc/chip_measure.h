@@ -43,6 +43,16 @@ typedef struct
   uint8_t resistance_valid;
 } ChipMeasure_R42Sample;
 
+typedef struct
+{
+  float current_sense_voltage_v;
+  float current_a;
+  float load_voltage_raw_v;
+  float load_voltage_v;
+  uint8_t current_adc_status;
+  uint8_t voltage_adc_status;
+} ChipMeasure_SyncSample;
+
 ChipMeasure_Status ChipMeasure_Init(void);
 ChipMeasure_Status ChipMeasure_ReadAdcIds(uint8_t *current_adc_id, uint8_t *voltage_adc_id);
 ChipMeasure_Status ChipMeasure_SelectPath(ChipMeasure_Path path);
@@ -50,6 +60,7 @@ ChipMeasure_Status ChipMeasure_ReadCurrent(float *current_a, float *sense_voltag
 ChipMeasure_Status ChipMeasure_ReadLoadVoltage(ChipMeasure_Path path,
                                                float *load_voltage_v,
                                                float *raw_voltage_v);
+ChipMeasure_Status ChipMeasure_ReadSynchronized(ChipMeasure_Path path, ChipMeasure_SyncSample *sample);
 ChipMeasure_Status ChipMeasure_ReadInternalR42(ChipMeasure_R42Sample *sample);
 
 #ifdef __cplusplus
