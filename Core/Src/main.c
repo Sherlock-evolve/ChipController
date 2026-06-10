@@ -336,7 +336,6 @@ static void App_PrintAdcSamples(uint32_t count)
     ChipMeasure_Status status;
     float current_abs_a;
     float voltage_abs_v;
-    float power_w;
     float resistance_ohm;
 
     status = ChipMeasure_ReadSynchronized(CHIP_MEASURE_PATH_EXTERNAL, &sample);
@@ -352,22 +351,14 @@ static void App_PrintAdcSamples(uint32_t count)
 
     current_abs_a = (sample.current_a < 0.0f) ? -sample.current_a : sample.current_a;
     voltage_abs_v = (sample.load_voltage_v < 0.0f) ? -sample.load_voltage_v : sample.load_voltage_v;
-    power_w = current_abs_a * voltage_abs_v;
     resistance_ohm = (current_abs_a > 0.000001f) ? (voltage_abs_v / current_abs_a) : 0.0f;
 
     BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                     "adc %lu: Isense=%ld uV (%ld nV) I=%ld uA (%ld nA) Vraw=%ld uV Vload=%ld uV P=%ld uW R=%ld mOhm st=0x%02X/0x%02X\r\n",
+                     "adc %lu: I=%ld nA V=%ld uV R=%ld mOhm\r\n",
                      (unsigned long)(index + 1u),
-                     (long)App_FloatToMilli(sample.current_sense_voltage_v * 1000.0f),
-                     (long)App_FloatToMilli(sample.current_sense_voltage_v * 1000000.0f),
-                     (long)App_FloatToMilli(sample.current_a * 1000.0f),
                      (long)App_FloatToMilli(sample.current_a * 1000000.0f),
-                     (long)App_FloatToMilli(sample.load_voltage_raw_v * 1000.0f),
                      (long)App_FloatToMilli(sample.load_voltage_v * 1000.0f),
-                     (long)App_FloatToMilli(power_w * 1000.0f),
-                     (long)App_FloatToMilli(resistance_ohm),
-                     sample.current_adc_status,
-                     sample.voltage_adc_status);
+                     (long)App_FloatToMilli(resistance_ohm));
   }
 }
 
