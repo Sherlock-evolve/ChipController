@@ -356,10 +356,12 @@ static void App_PrintAdcSamples(uint32_t count)
     resistance_ohm = (current_abs_a > 0.000001f) ? (voltage_abs_v / current_abs_a) : 0.0f;
 
     BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                     "adc %lu: Isense=%ld uV I=%ld uA Vraw=%ld uV Vload=%ld uV P=%ld uW R=%ld mOhm st=0x%02X/0x%02X\r\n",
+                     "adc %lu: Isense=%ld uV (%ld nV) I=%ld uA (%ld nA) Vraw=%ld uV Vload=%ld uV P=%ld uW R=%ld mOhm st=0x%02X/0x%02X\r\n",
                      (unsigned long)(index + 1u),
                      (long)App_FloatToMilli(sample.current_sense_voltage_v * 1000.0f),
+                     (long)App_FloatToMilli(sample.current_sense_voltage_v * 1000000.0f),
                      (long)App_FloatToMilli(sample.current_a * 1000.0f),
+                     (long)App_FloatToMilli(sample.current_a * 1000000.0f),
                      (long)App_FloatToMilli(sample.load_voltage_raw_v * 1000.0f),
                      (long)App_FloatToMilli(sample.load_voltage_v * 1000.0f),
                      (long)App_FloatToMilli(power_w * 1000.0f),
