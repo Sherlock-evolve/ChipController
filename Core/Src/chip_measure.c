@@ -69,6 +69,18 @@ ChipMeasure_Status ChipMeasure_Init(void)
     return chip_measure_from_ad7190_status(status);
   }
 
+  status = AD7190_CalibrateZeroScale(&s_current_adc);
+  if (status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(status);
+  }
+
+  status = AD7190_CalibrateFullScale(&s_current_adc);
+  if (status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(status);
+  }
+
   status = AD7190_Init(&s_voltage_adc);
   if (status != AD7190_OK)
   {
@@ -81,6 +93,18 @@ ChipMeasure_Status ChipMeasure_Init(void)
                             1u,
                             0u,
                             0u);
+  if (status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(status);
+  }
+
+  status = AD7190_CalibrateZeroScale(&s_voltage_adc);
+  if (status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(status);
+  }
+
+  status = AD7190_CalibrateFullScale(&s_voltage_adc);
   if (status != AD7190_OK)
   {
     return chip_measure_from_ad7190_status(status);

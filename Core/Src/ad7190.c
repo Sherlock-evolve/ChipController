@@ -21,9 +21,11 @@
 #define AD7190_STATUS_ERR      0x40u
 #define AD7190_STATUS_NOREF    0x20u
 
-#define AD7190_MODE_INTERNAL_CLOCK  (2u << 18)
-#define AD7190_MODE_SINGLE          (1u << 21)
-#define AD7190_MODE_FS_16HZ         96u
+#define AD7190_MODE_INTERNAL_CLOCK      (2u << 18)
+#define AD7190_MODE_SINGLE              (1u << 21)
+#define AD7190_MODE_INTERNAL_ZERO_SCALE (0x80u << 16)
+#define AD7190_MODE_INTERNAL_FULL_SCALE (0xA0u << 16)
+#define AD7190_MODE_FS_16HZ             96u
 
 #define AD7190_CONFIG_CHOP          (1u << 23)
 #define AD7190_CONFIG_REFDET        (1u << 6)
@@ -113,6 +115,72 @@ AD7190_Status AD7190_ReadStatus(AD7190_Handle *adc, uint8_t *status)
   }
 
   return ad7190_read_register(adc, AD7190_REG_STATUS, status, 1u);
+}
+
+AD7190_Status AD7190_CalibrateZeroScale(AD7190_Handle *adc)
+{
+  uint8_t status = 0u;
+  AD7190_Status result;
+
+  if ((adc == NULL) || (adc->hspi == NULL))
+  {
+    return AD7190_INVALID_PARAM;
+  }
+
+  result = ad7190_write_mode(adc,
+                             AD7190_MODE_INTERNAL_ZERO_SCALE |
+                             AD7190_MODE_INTERNAL_CLOCK |
+                             AD7190_MODE_FS_16HZ);
+  if (result != AD7190_OK)
+  {
+    return result;
+  }
+
+  result = AD7190_WaitReady(adc, &status);
+  if (result != AD7190_OK)
+  {
+    return result;
+  }
+
+  if ((status & (AD7190_STATUS_ERR | AD7190_STATUS_NOREF)) != 0u)
+  {
+    return AD7190_ERROR;
+  }
+
+  return AD7190_OK;
+}
+
+AD7190_Status AD7190_CalibrateFullScale(AD7190_Handle *adc)
+{
+  uint8_t status = 0u;
+  AD7190_Status result;
+
+  if ((adc == NULL) || (adc->hspi == NULL))
+  {
+    return AD7190_INVALID_PARAM;
+  }
+
+  result = ad7190_write_mode(adc,
+                             AD7190_MODE_INTERNAL_FULL_SCALE |
+                             AD7190_MODE_INTERNAL_CLOCK |
+                             AD7190_MODE_FS_16HZ);
+  if (result != AD7190_OK)
+  {
+    return result;
+  }
+
+  result = AD7190_WaitReady(adc, &status);
+  if (result != AD7190_OK)
+  {
+    return result;
+  }
+
+  if ((status & (AD7190_STATUS_ERR | AD7190_STATUS_NOREF)) != 0u)
+  {
+    return AD7190_ERROR;
+  }
+
+  return AD7190_OK;
 }
 
 AD7190_Status AD7190_Configure(AD7190_Handle *adc,

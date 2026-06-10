@@ -70,6 +70,8 @@ AD7190_Status AD7190_Init(AD7190_Handle *adc);
 AD7190_Status AD7190_Reset(AD7190_Handle *adc);
 AD7190_Status AD7190_ReadId(AD7190_Handle *adc, uint8_t *id);
 AD7190_Status AD7190_ReadStatus(AD7190_Handle *adc, uint8_t *status);
+AD7190_Status AD7190_CalibrateZeroScale(AD7190_Handle *adc);
+AD7190_Status AD7190_CalibrateFullScale(AD7190_Handle *adc);
 AD7190_Status AD7190_Configure(AD7190_Handle *adc,
                                uint8_t channels,
                                AD7190_Gain gain,
