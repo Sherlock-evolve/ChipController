@@ -15,6 +15,9 @@
 #define CHIP_MEASURE_CURRENT_SHUNT_OHM    1.0f
 #define CHIP_MEASURE_MIN_CURRENT_A        0.000001f
 #define CHIP_MEASURE_RELAY_SETTLE_MS      5u
+/* External path zero, measured with I+/I- open and V+/V- shorted. */
+#define CHIP_MEASURE_CURRENT_ZERO_A       0.000003888f
+#define CHIP_MEASURE_VOLTAGE_ZERO_V       0.00008821f
 
 extern SPI_HandleTypeDef hspi1;
 extern SPI_HandleTypeDef hspi2;
@@ -39,6 +42,8 @@ static AD7190_Handle s_voltage_adc = {
 
 static ChipMeasure_Status chip_measure_from_ad7190_status(AD7190_Status status);
 static void chip_measure_set_adc_sync(uint8_t released);
+static float chip_measure_calibrate_current_sense(float raw_sense_voltage_v);
+static float chip_measure_calibrate_load_voltage_raw(float raw_voltage_v);
 static float chip_measure_absf(float value);
 
 ChipMeasure_Status ChipMeasure_Init(void)
@@ -146,8 +151,8 @@ ChipMeasure_Status ChipMeasure_ReadCurrent(float *current_a, float *sense_voltag
     return chip_measure_from_ad7190_status(status);
   }
 
-  *sense_voltage_v = reading.voltage;
-  *current_a = reading.voltage / CHIP_MEASURE_CURRENT_SHUNT_OHM;
+  *sense_voltage_v = chip_measure_calibrate_current_sense(reading.voltage);
+  *current_a = *sense_voltage_v / CHIP_MEASURE_CURRENT_SHUNT_OHM;
 
   return CHIP_MEASURE_OK;
 }
@@ -170,15 +175,15 @@ ChipMeasure_Status ChipMeasure_ReadLoadVoltage(ChipMeasure_Path path,
     return chip_measure_from_ad7190_status(status);
   }
 
-  *raw_voltage_v = reading.voltage;
+  *raw_voltage_v = chip_measure_calibrate_load_voltage_raw(reading.voltage);
 
   if (path == CHIP_MEASURE_PATH_INTERNAL_R42)
   {
-    *load_voltage_v = -reading.voltage;
+    *load_voltage_v = -*raw_voltage_v;
   }
   else
   {
-    *load_voltage_v = reading.voltage;
+    *load_voltage_v = *raw_voltage_v;
   }
 
   return CHIP_MEASURE_OK;
@@ -253,19 +258,19 @@ ChipMeasure_Status ChipMeasure_ReadSynchronized(ChipMeasure_Path path, ChipMeasu
     return chip_measure_from_ad7190_status(adc_status);
   }
 
-  sample->current_sense_voltage_v = current_reading.voltage;
-  sample->current_a = current_reading.voltage / CHIP_MEASURE_CURRENT_SHUNT_OHM;
-  sample->load_voltage_raw_v = voltage_reading.voltage;
+  sample->current_sense_voltage_v = chip_measure_calibrate_current_sense(current_reading.voltage);
+  sample->current_a = sample->current_sense_voltage_v / CHIP_MEASURE_CURRENT_SHUNT_OHM;
+  sample->load_voltage_raw_v = chip_measure_calibrate_load_voltage_raw(voltage_reading.voltage);
   sample->current_adc_status = current_reading.status;
   sample->voltage_adc_status = voltage_reading.status;
 
   if (path == CHIP_MEASURE_PATH_INTERNAL_R42)
   {
-    sample->load_voltage_v = -voltage_reading.voltage;
+    sample->load_voltage_v = -sample->load_voltage_raw_v;
   }
   else
   {
-    sample->load_voltage_v = voltage_reading.voltage;
+    sample->load_voltage_v = sample->load_voltage_raw_v;
   }
 
   return CHIP_MEASURE_OK;
@@ -361,6 +366,16 @@ static void chip_measure_set_adc_sync(uint8_t released)
   {
     HAL_GPIO_WritePin(s_voltage_adc.sync_port, s_voltage_adc.sync_pin, state);
   }
+}
+
+static float chip_measure_calibrate_current_sense(float raw_sense_voltage_v)
+{
+  return raw_sense_voltage_v - (CHIP_MEASURE_CURRENT_ZERO_A * CHIP_MEASURE_CURRENT_SHUNT_OHM);
+}
+
+static float chip_measure_calibrate_load_voltage_raw(float raw_voltage_v)
+{
+  return raw_voltage_v - CHIP_MEASURE_VOLTAGE_ZERO_V;
 }
 
 static float chip_measure_absf(float value)
