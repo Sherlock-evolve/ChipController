@@ -42,8 +42,8 @@ static AD7190_Handle s_voltage_adc = {
 
 static ChipMeasure_Status chip_measure_from_ad7190_status(AD7190_Status status);
 static void chip_measure_set_adc_sync(uint8_t released);
-static float chip_measure_calibrate_current_sense(float raw_sense_voltage_v);
-static float chip_measure_calibrate_load_voltage_raw(float raw_voltage_v);
+static float chip_measure_calibrate_current_sense(ChipMeasure_Path path, float raw_sense_voltage_v);
+static float chip_measure_calibrate_load_voltage(ChipMeasure_Path path, float raw_voltage_v);
 static float chip_measure_absf(float value);
 
 ChipMeasure_Status ChipMeasure_Init(void)
@@ -159,12 +159,17 @@ ChipMeasure_Status ChipMeasure_SelectPath(ChipMeasure_Path path)
   return CHIP_MEASURE_OK;
 }
 
-ChipMeasure_Status ChipMeasure_ReadCurrent(float *current_a, float *sense_voltage_v)
+ChipMeasure_Status ChipMeasure_ReadCurrent(ChipMeasure_Path path, float *current_a, float *sense_voltage_v)
 {
   AD7190_Reading reading;
   AD7190_Status status;
 
   if ((current_a == NULL) || (sense_voltage_v == NULL))
+  {
+    return CHIP_MEASURE_INVALID_PARAM;
+  }
+
+  if ((path != CHIP_MEASURE_PATH_EXTERNAL) && (path != CHIP_MEASURE_PATH_INTERNAL_R42))
   {
     return CHIP_MEASURE_INVALID_PARAM;
   }
@@ -175,7 +180,7 @@ ChipMeasure_Status ChipMeasure_ReadCurrent(float *current_a, float *sense_voltag
     return chip_measure_from_ad7190_status(status);
   }
 
-  *sense_voltage_v = chip_measure_calibrate_current_sense(reading.voltage);
+  *sense_voltage_v = chip_measure_calibrate_current_sense(path, reading.voltage);
   *current_a = *sense_voltage_v / CHIP_MEASURE_CURRENT_SHUNT_OHM;
 
   return CHIP_MEASURE_OK;
@@ -193,21 +198,30 @@ ChipMeasure_Status ChipMeasure_ReadLoadVoltage(ChipMeasure_Path path,
     return CHIP_MEASURE_INVALID_PARAM;
   }
 
+  if ((path != CHIP_MEASURE_PATH_EXTERNAL) && (path != CHIP_MEASURE_PATH_INTERNAL_R42))
+  {
+    return CHIP_MEASURE_INVALID_PARAM;
+  }
+
   status = AD7190_ReadSingle(&s_voltage_adc, &reading);
   if (status != AD7190_OK)
   {
     return chip_measure_from_ad7190_status(status);
   }
 
-  *raw_voltage_v = chip_measure_calibrate_load_voltage_raw(reading.voltage);
+  *raw_voltage_v = reading.voltage;
 
   if (path == CHIP_MEASURE_PATH_INTERNAL_R42)
   {
     *load_voltage_v = -*raw_voltage_v;
   }
+  else if (path == CHIP_MEASURE_PATH_EXTERNAL)
+  {
+    *load_voltage_v = chip_measure_calibrate_load_voltage(path, *raw_voltage_v);
+  }
   else
   {
-    *load_voltage_v = *raw_voltage_v;
+    return CHIP_MEASURE_INVALID_PARAM;
   }
 
   return CHIP_MEASURE_OK;
@@ -282,9 +296,9 @@ ChipMeasure_Status ChipMeasure_ReadSynchronized(ChipMeasure_Path path, ChipMeasu
     return chip_measure_from_ad7190_status(adc_status);
   }
 
-  sample->current_sense_voltage_v = chip_measure_calibrate_current_sense(current_reading.voltage);
+  sample->current_sense_voltage_v = chip_measure_calibrate_current_sense(path, current_reading.voltage);
   sample->current_a = sample->current_sense_voltage_v / CHIP_MEASURE_CURRENT_SHUNT_OHM;
-  sample->load_voltage_raw_v = chip_measure_calibrate_load_voltage_raw(voltage_reading.voltage);
+  sample->load_voltage_raw_v = voltage_reading.voltage;
   sample->current_adc_status = current_reading.status;
   sample->voltage_adc_status = voltage_reading.status;
 
@@ -292,9 +306,13 @@ ChipMeasure_Status ChipMeasure_ReadSynchronized(ChipMeasure_Path path, ChipMeasu
   {
     sample->load_voltage_v = -sample->load_voltage_raw_v;
   }
+  else if (path == CHIP_MEASURE_PATH_EXTERNAL)
+  {
+    sample->load_voltage_v = chip_measure_calibrate_load_voltage(path, sample->load_voltage_raw_v);
+  }
   else
   {
-    sample->load_voltage_v = sample->load_voltage_raw_v;
+    return CHIP_MEASURE_INVALID_PARAM;
   }
 
   return CHIP_MEASURE_OK;
@@ -322,7 +340,9 @@ ChipMeasure_Status ChipMeasure_ReadInternalR42(ChipMeasure_R42Sample *sample)
     return status;
   }
 
-  status = ChipMeasure_ReadCurrent(&sample->current_a, &sample->current_sense_voltage_v);
+  status = ChipMeasure_ReadCurrent(CHIP_MEASURE_PATH_INTERNAL_R42,
+                                   &sample->current_a,
+                                   &sample->current_sense_voltage_v);
   if (status != CHIP_MEASURE_OK)
   {
     (void)ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
@@ -392,14 +412,24 @@ static void chip_measure_set_adc_sync(uint8_t released)
   }
 }
 
-static float chip_measure_calibrate_current_sense(float raw_sense_voltage_v)
+static float chip_measure_calibrate_current_sense(ChipMeasure_Path path, float raw_sense_voltage_v)
 {
-  return raw_sense_voltage_v - (CHIP_MEASURE_CURRENT_ZERO_A * CHIP_MEASURE_CURRENT_SHUNT_OHM);
+  if (path == CHIP_MEASURE_PATH_EXTERNAL)
+  {
+    return raw_sense_voltage_v - (CHIP_MEASURE_CURRENT_ZERO_A * CHIP_MEASURE_CURRENT_SHUNT_OHM);
+  }
+
+  return raw_sense_voltage_v;
 }
 
-static float chip_measure_calibrate_load_voltage_raw(float raw_voltage_v)
+static float chip_measure_calibrate_load_voltage(ChipMeasure_Path path, float raw_voltage_v)
 {
-  return raw_voltage_v - CHIP_MEASURE_VOLTAGE_ZERO_V;
+  if (path == CHIP_MEASURE_PATH_EXTERNAL)
+  {
+    return raw_voltage_v - CHIP_MEASURE_VOLTAGE_ZERO_V;
+  }
+
+  return raw_voltage_v;
 }
 
 static float chip_measure_absf(float value)

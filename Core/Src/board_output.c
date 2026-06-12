@@ -131,7 +131,9 @@ BoardOutput_Status BoardOutput_RunR42SelfTest(BoardOutput_R42SelfTestResult *res
 
     HAL_Delay(BOARD_OUTPUT_R42_TEST_SETTLE_MS);
 
-    measure_status = ChipMeasure_ReadCurrent(&result->current_a, &result->current_sense_v);
+    measure_status = ChipMeasure_ReadCurrent(CHIP_MEASURE_PATH_INTERNAL_R42,
+                                             &result->current_a,
+                                             &result->current_sense_v);
     if (measure_status != CHIP_MEASURE_OK)
     {
       board_output_safe_idle();

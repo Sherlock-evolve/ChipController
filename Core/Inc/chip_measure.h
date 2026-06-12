@@ -56,7 +56,7 @@ typedef struct
 ChipMeasure_Status ChipMeasure_Init(void);
 ChipMeasure_Status ChipMeasure_ReadAdcIds(uint8_t *current_adc_id, uint8_t *voltage_adc_id);
 ChipMeasure_Status ChipMeasure_SelectPath(ChipMeasure_Path path);
-ChipMeasure_Status ChipMeasure_ReadCurrent(float *current_a, float *sense_voltage_v);
+ChipMeasure_Status ChipMeasure_ReadCurrent(ChipMeasure_Path path, float *current_a, float *sense_voltage_v);
 ChipMeasure_Status ChipMeasure_ReadLoadVoltage(ChipMeasure_Path path,
                                                float *load_voltage_v,
                                                float *raw_voltage_v);
