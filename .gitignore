@@ -12,6 +12,10 @@ Debug/
 .vscode/
 .idea/
 
+# Python tooling
+__pycache__/
+*.pyc
+
 # Claude tool artifacts
 .agents/
 .codex/
