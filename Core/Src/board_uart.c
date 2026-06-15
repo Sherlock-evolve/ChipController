@@ -25,7 +25,7 @@ static UART_HandleTypeDef *s_rs485_uart;
 /* Interrupt-driven receive ring buffer for debug UART. */
 static uint8_t  s_debug_rx_ring[BOARD_UART_RX_RING_SIZE];
 static volatile uint16_t s_debug_rx_head;   /* ISR writes here */
-static uint16_t s_debug_rx_tail;            /* main loop reads here */
+static volatile uint16_t s_debug_rx_tail;   /* main loop writes, ISR reads */
 static uint8_t  s_debug_rx_it_byte;         /* HAL_UART_Receive_IT target byte */
 
 static UART_HandleTypeDef *board_uart_get_handle(BoardUart_Port port);
@@ -160,6 +160,11 @@ BoardUart_Status BoardUart_Read(BoardUart_Port port, uint8_t *data, size_t len, 
   }
 
   /* Debug port: read from interrupt-driven ring buffer. */
+  if (len != 1u)
+  {
+    return BOARD_UART_INVALID_PARAM;
+  }
+
   {
     uint32_t deadline = HAL_GetTick() + timeout_ms;
     size_t read = 0u;
@@ -292,6 +297,16 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
       s_debug_rx_head = next;
     }
 
+    (void)HAL_UART_Receive_IT(s_debug_uart, &s_debug_rx_it_byte, 1u);
+  }
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  if ((s_debug_uart != NULL) && (huart->Instance == s_debug_uart->Instance))
+  {
+    __HAL_UART_CLEAR_FLAG(s_debug_uart, UART_CLEAR_PEF | UART_CLEAR_FEF | UART_CLEAR_NEF | UART_CLEAR_OREF);
+    (void)HAL_UART_AbortReceive_IT(s_debug_uart);
     (void)HAL_UART_Receive_IT(s_debug_uart, &s_debug_rx_it_byte, 1u);
   }
 }
