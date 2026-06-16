@@ -18,6 +18,9 @@
 /* External path zero, measured with I+/I- open and V+/V- shorted. */
 #define CHIP_MEASURE_CURRENT_ZERO_A       0.000003888f
 #define CHIP_MEASURE_VOLTAGE_ZERO_V       0.00008821f
+/* External path gain, measured against a 233.01 ohm load and DMM voltage. */
+#define CHIP_MEASURE_CURRENT_GAIN         1.00190f
+#define CHIP_MEASURE_VOLTAGE_GAIN         1.00389f
 
 extern SPI_HandleTypeDef hspi1;
 extern SPI_HandleTypeDef hspi2;
@@ -416,7 +419,8 @@ static float chip_measure_calibrate_current_sense(ChipMeasure_Path path, float r
 {
   if (path == CHIP_MEASURE_PATH_EXTERNAL)
   {
-    return raw_sense_voltage_v - (CHIP_MEASURE_CURRENT_ZERO_A * CHIP_MEASURE_CURRENT_SHUNT_OHM);
+    return (raw_sense_voltage_v - (CHIP_MEASURE_CURRENT_ZERO_A * CHIP_MEASURE_CURRENT_SHUNT_OHM)) *
+           CHIP_MEASURE_CURRENT_GAIN;
   }
 
   return raw_sense_voltage_v;
@@ -426,7 +430,7 @@ static float chip_measure_calibrate_load_voltage(ChipMeasure_Path path, float ra
 {
   if (path == CHIP_MEASURE_PATH_EXTERNAL)
   {
-    return raw_voltage_v - CHIP_MEASURE_VOLTAGE_ZERO_V;
+    return (raw_voltage_v - CHIP_MEASURE_VOLTAGE_ZERO_V) * CHIP_MEASURE_VOLTAGE_GAIN;
   }
 
   return raw_voltage_v;
