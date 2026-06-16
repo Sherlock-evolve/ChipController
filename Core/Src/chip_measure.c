@@ -16,11 +16,11 @@
 #define CHIP_MEASURE_MIN_CURRENT_A        0.000001f
 #define CHIP_MEASURE_RELAY_SETTLE_MS      5u
 /* External path zero, measured with I+/I- open and V+/V- shorted. */
-#define CHIP_MEASURE_CURRENT_ZERO_A       0.000003888f
-#define CHIP_MEASURE_VOLTAGE_ZERO_V       0.00008821f
-/* External path gain, measured against a 233.01 ohm load and DMM voltage. */
+#define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000535f
+#define CHIP_MEASURE_VOLTAGE_ZERO_V       0.00000603f
+/* External path gain, measured against a 233.09 ohm load and DMM voltage. */
 #define CHIP_MEASURE_CURRENT_GAIN         1.00190f
-#define CHIP_MEASURE_VOLTAGE_GAIN         1.00389f
+#define CHIP_MEASURE_VOLTAGE_GAIN         1.00495f
 
 extern SPI_HandleTypeDef hspi1;
 extern SPI_HandleTypeDef hspi2;

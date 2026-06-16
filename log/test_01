@@ -1,0 +1,265 @@
+tc current 1
+ThermalControl current target: 1000 uA, status=OK (0)
+tc status
+TC: mode=CURRENT enabled=1 fault=0 status=OK (0)
+TC target: temp=0 mC error=0 mC current=1000 uA integral=0 uA drive=16 mV
+TC measured: temp=0 mC current=1000 uA voltage=234 mV power=234 uW R=233809 mOhm
+adcs 25
+AD7190 sync samples: count=25
+adc 1: I=999813 nA V=233744 uV R=233788 mOhm
+adc 2: I=999888 nA V=233762 uV R=233788 mOhm
+adc 3: I=999813 nA V=233758 uV R=233802 mOhm
+adc 4: I=999813 nA V=233765 uV R=233809 mOhm
+adc 5: I=999925 nA V=233756 uV R=233774 mOhm
+adc 6: I=999813 nA V=233764 uV R=233808 mOhm
+adc 7: I=999850 nA V=233779 uV R=233814 mOhm
+adc 8: I=999701 nA V=233737 uV R=233807 mOhm
+adc 9: I=999664 nA V=233751 uV R=233829 mOhm
+adc 10: I=999701 nA V=233727 uV R=233797 mOhm
+adc 11: I=999701 nA V=233732 uV R=233801 mOhm
+adc 12: I=999589 nA V=233724 uV R=233820 mOhm
+adc 13: I=999552 nA V=233723 uV R=233828 mOhm
+adc 14: I=999776 nA V=233757 uV R=233809 mOhm
+adc 15: I=999552 nA V=233718 uV R=233823 mOhm
+adc 16: I=999589 nA V=233728 uV R=233824 mOhm
+adc 17: I=999589 nA V=233734 uV R=233830 mOhm
+adc 18: I=999738 nA V=233782 uV R=233844 mOhm
+adc 19: I=999626 nA V=233750 uV R=233838 mOhm
+adc 20: I=999738 nA V=233778 uV R=233839 mOhm
+adc 21: I=999701 nA V=233766 uV R=233836 mOhm
+adc 22: I=999776 nA V=233761 uV R=233813 mOhm
+adc 23: I=999552 nA V=233730 uV R=233835 mOhm
+adc 24: I=999626 nA V=233730 uV R=233817 mOhm
+adc 25: I=999776 nA V=233776 uV R=233829 mOhm
+tc current 2
+ThermalControl current target: 2000 uA, status=OK (0)
+tc status
+TC: mode=CURRENT enabled=1 fault=0 status=OK (0)
+TC target: temp=0 mC error=0 mC current=2000 uA integral=0 uA drive=39 mV
+TC measured: temp=0 mC current=1999 uA voltage=466 mV power=932 uW R=233317 mOhm
+adcs 25
+AD7190 sync samples: count=25
+adc 1: I=1998893 nA V=466383 uV R=233321 mOhm
+adc 2: I=1999005 nA V=466405 uV R=233318 mOhm
+adc 3: I=1998931 nA V=466375 uV R=233312 mOhm
+adc 4: I=1998893 nA V=466382 uV R=233320 mOhm
+adc 5: I=1998782 nA V=466371 uV R=233327 mOhm
+adc 6: I=1998744 nA V=466372 uV R=233332 mOhm
+adc 7: I=1998669 nA V=466363 uV R=233337 mOhm
+adc 8: I=1998819 nA V=466375 uV R=233325 mOhm
+adc 9: I=1998931 nA V=466383 uV R=233316 mOhm
+adc 10: I=1998707 nA V=466351 uV R=233326 mOhm
+adc 11: I=1998669 nA V=466362 uV R=233336 mOhm
+adc 12: I=1998893 nA V=466385 uV R=233322 mOhm
+adc 13: I=1998856 nA V=466395 uV R=233331 mOhm
+adc 14: I=1998782 nA V=466368 uV R=233326 mOhm
+adc 15: I=1998669 nA V=466378 uV R=233344 mOhm
+adc 16: I=1998744 nA V=466374 uV R=233334 mOhm
+adc 17: I=1998744 nA V=466385 uV R=233339 mOhm
+adc 18: I=1998595 nA V=466369 uV R=233348 mOhm
+adc 19: I=1998669 nA V=466348 uV R=233329 mOhm
+adc 20: I=1998669 nA V=466377 uV R=233344 mOhm
+adc 21: I=1998669 nA V=466357 uV R=233334 mOhm
+adc 22: I=1998968 nA V=466402 uV R=233322 mOhm
+adc 23: I=1998856 nA V=466385 uV R=233326 mOhm
+adc 24: I=1998558 nA V=466337 uV R=233337 mOhm
+adc 25: I=1998931 nA V=466390 uV R=233320 mOhm
+tc current 3
+ThermalControl current target: 3000 uA, status=OK (0)
+tc status
+TC: mode=CURRENT enabled=1 fault=0 status=OK (0)
+TC target: temp=0 mC error=0 mC current=3000 uA integral=0 uA drive=62 mV
+TC measured: temp=0 mC current=3001 uA voltage=700 mV power=2099 uW R=233143 mOhm
+adcs 25
+AD7190 sync samples: count=25
+adc 1: I=2997153 nA V=698797 uV R=233153 mOhm
+adc 2: I=2996966 nA V=698779 uV R=233162 mOhm
+adc 3: I=2997003 nA V=698786 uV R=233162 mOhm
+adc 4: I=2997041 nA V=698799 uV R=233163 mOhm
+adc 5: I=2996854 nA V=698762 uV R=233165 mOhm
+adc 6: I=2996929 nA V=698752 uV R=233156 mOhm
+adc 7: I=2996854 nA V=698775 uV R=233170 mOhm
+adc 8: I=2996929 nA V=698793 uV R=233170 mOhm
+adc 9: I=2997003 nA V=698787 uV R=233162 mOhm
+adc 10: I=2996891 nA V=698764 uV R=233163 mOhm
+adc 11: I=2997003 nA V=698797 uV R=233165 mOhm
+adc 12: I=2996966 nA V=698786 uV R=233164 mOhm
+adc 13: I=2996854 nA V=698789 uV R=233174 mOhm
+adc 14: I=2996854 nA V=698774 uV R=233169 mOhm
+adc 15: I=2996966 nA V=698807 uV R=233172 mOhm
+adc 16: I=2996817 nA V=698762 uV R=233168 mOhm
+adc 17: I=2996966 nA V=698789 uV R=233166 mOhm
+adc 18: I=2996966 nA V=698797 uV R=233168 mOhm
+adc 19: I=2997041 nA V=698805 uV R=233165 mOhm
+adc 20: I=2996854 nA V=698777 uV R=233170 mOhm
+adc 21: I=2997041 nA V=698806 uV R=233165 mOhm
+adc 22: I=2997227 nA V=698851 uV R=233166 mOhm
+adc 23: I=2996817 nA V=698777 uV R=233173 mOhm
+adc 24: I=2996854 nA V=698789 uV R=233174 mOhm
+adc 25: I=2997041 nA V=698811 uV R=233167 mOhm
+tc current 4
+ThermalControl current target: 4000 uA, status=OK (0)
+tc status
+TC: mode=CURRENT enabled=1 fault=0 status=OK (0)
+TC target: temp=0 mC error=0 mC current=4000 uA integral=0 uA drive=84 mV
+TC measured: temp=0 mC current=3997 uA voltage=932 mV power=3723 uW R=233073 mOhm
+adcs 25
+AD7190 sync samples: count=25
+adc 1: I=3999742 nA V=932270 uV R=233083 mOhm
+adc 2: I=3999965 nA V=932285 uV R=233073 mOhm
+adc 3: I=3999779 nA V=932278 uV R=233082 mOhm
+adc 4: I=3999592 nA V=932231 uV R=233081 mOhm
+adc 5: I=3999779 nA V=932270 uV R=233080 mOhm
+adc 6: I=3999518 nA V=932213 uV R=233081 mOhm
+adc 7: I=3999667 nA V=932248 uV R=233081 mOhm
+adc 8: I=3999630 nA V=932252 uV R=233085 mOhm
+adc 9: I=3999704 nA V=932265 uV R=233084 mOhm
+adc 10: I=3999630 nA V=932245 uV R=233083 mOhm
+adc 11: I=3999816 nA V=932282 uV R=233081 mOhm
+adc 12: I=3999704 nA V=932261 uV R=233082 mOhm
+adc 13: I=3999854 nA V=932281 uV R=233079 mOhm
+adc 14: I=3999779 nA V=932306 uV R=233089 mOhm
+adc 15: I=3999742 nA V=932282 uV R=233086 mOhm
+adc 16: I=3999965 nA V=932332 uV R=233085 mOhm
+adc 17: I=4000003 nA V=932329 uV R=233082 mOhm
+adc 18: I=3999854 nA V=932299 uV R=233083 mOhm
+adc 19: I=3999816 nA V=932291 uV R=233083 mOhm
+adc 20: I=3999816 nA V=932302 uV R=233086 mOhm
+adc 21: I=3999592 nA V=932253 uV R=233087 mOhm
+adc 22: I=3999630 nA V=932265 uV R=233088 mOhm
+adc 23: I=3999518 nA V=932241 uV R=233088 mOhm
+adc 24: I=3999667 nA V=932266 uV R=233086 mOhm
+adc 25: I=3999443 nA V=932229 uV R=233090 mOhm
+tc current 5
+ThermalControl current target: 5000 uA, status=OK (0)
+tc status
+TC: mode=CURRENT enabled=1 fault=0 status=OK (0)
+TC target: temp=0 mC error=0 mC current=5000 uA integral=0 uA drive=107 mV
+TC measured: temp=0 mC current=5001 uA voltage=1165 mV power=5829 uW R=233031 mOhm
+adcs 25
+AD7190 sync samples: count=25
+adc 1: I=5001398 nA V=1165488 uV R=233033 mOhm
+adc 2: I=5001584 nA V=1165511 uV R=233028 mOhm
+adc 3: I=5001584 nA V=1165509 uV R=233028 mOhm
+adc 4: I=5001285 nA V=1165474 uV R=233035 mOhm
+adc 5: I=5001398 nA V=1165476 uV R=233030 mOhm
+adc 6: I=5001360 nA V=1165476 uV R=233032 mOhm
+adc 7: I=5001323 nA V=1165469 uV R=233032 mOhm
+adc 8: I=5001211 nA V=1165471 uV R=233038 mOhm
+adc 9: I=5001398 nA V=1165475 uV R=233030 mOhm
+adc 10: I=5001360 nA V=1165485 uV R=233034 mOhm
+adc 11: I=5001248 nA V=1165476 uV R=233037 mOhm
+adc 12: I=5001248 nA V=1165483 uV R=233038 mOhm
+adc 13: I=5001360 nA V=1165487 uV R=233034 mOhm
+adc 14: I=5001435 nA V=1165497 uV R=233033 mOhm
+adc 15: I=5001211 nA V=1165470 uV R=233038 mOhm
+adc 16: I=5001360 nA V=1165503 uV R=233037 mOhm
+adc 17: I=5001285 nA V=1165493 uV R=233039 mOhm
+adc 18: I=5001285 nA V=1165480 uV R=233036 mOhm
+adc 19: I=5001211 nA V=1165467 uV R=233037 mOhm
+adc 20: I=5001248 nA V=1165473 uV R=233036 mOhm
+adc 21: I=5001285 nA V=1165479 uV R=233036 mOhm
+adc 22: I=5001061 nA V=1165426 uV R=233036 mOhm
+adc 23: I=5001136 nA V=1165427 uV R=233032 mOhm
+adc 24: I=5001024 nA V=1165427 uV R=233038 mOhm
+adc 25: I=5001098 nA V=1165421 uV R=233033 mOhm
+tc current 6
+ThermalControl current target: 6000 uA, status=OK (0)
+tc status
+TC: mode=CURRENT enabled=1 fault=0 status=OK (0)
+TC target: temp=0 mC error=0 mC current=6000 uA integral=0 uA drive=130 mV
+TC measured: temp=0 mC current=5998 uA voltage=1398 mV power=8382 uW R=233002 mOhm
+adcs 25
+AD7190 sync samples: count=25
+adc 1: I=6001560 nA V=1398360 uV R=232999 mOhm
+adc 2: I=6001411 nA V=1398306 uV R=232996 mOhm
+adc 3: I=6001485 nA V=1398327 uV R=232997 mOhm
+adc 4: I=6001336 nA V=1398298 uV R=232998 mOhm
+adc 5: I=6001411 nA V=1398315 uV R=232998 mOhm
+adc 6: I=6001373 nA V=1398315 uV R=232999 mOhm
+adc 7: I=6001485 nA V=1398348 uV R=233000 mOhm
+adc 8: I=6001448 nA V=1398340 uV R=233001 mOhm
+adc 9: I=6001299 nA V=1398326 uV R=233004 mOhm
+adc 10: I=6001336 nA V=1398329 uV R=233003 mOhm
+adc 11: I=6001523 nA V=1398364 uV R=233001 mOhm
+adc 12: I=6001299 nA V=1398316 uV R=233002 mOhm
+adc 13: I=6001560 nA V=1398356 uV R=232999 mOhm
+adc 14: I=6001448 nA V=1398355 uV R=233003 mOhm
+adc 15: I=6001336 nA V=1398357 uV R=233008 mOhm
+adc 16: I=6001411 nA V=1398346 uV R=233003 mOhm
+adc 17: I=6001261 nA V=1398314 uV R=233003 mOhm
+adc 18: I=6001299 nA V=1398342 uV R=233006 mOhm
+adc 19: I=6001635 nA V=1398393 uV R=233002 mOhm
+adc 20: I=6001523 nA V=1398373 uV R=233003 mOhm
+adc 21: I=6001485 nA V=1398358 uV R=233002 mOhm
+adc 22: I=6001411 nA V=1398356 uV R=233005 mOhm
+adc 23: I=6001411 nA V=1398356 uV R=233005 mOhm
+adc 24: I=6001597 nA V=1398400 uV R=233005 mOhm
+adc 25: I=6001448 nA V=1398362 uV R=233004 mOhm
+tc current 7
+ThermalControl current target: 7000 uA, status=OK (0)
+tc status
+TC: mode=CURRENT enabled=1 fault=0 status=OK (0)
+TC target: temp=0 mC error=0 mC current=7000 uA integral=0 uA drive=153 mV
+TC measured: temp=0 mC current=7000 uA voltage=1631 mV power=11415 uW R=232970 mOhm
+adcs 25
+AD7190 sync samples: count=25
+adc 1: I=6999446 nA V=1630701 uV R=232976 mOhm
+adc 2: I=6999670 nA V=1630741 uV R=232974 mOhm
+adc 3: I=6999558 nA V=1630719 uV R=232975 mOhm
+adc 4: I=6999446 nA V=1630707 uV R=232977 mOhm
+adc 5: I=6999595 nA V=1630715 uV R=232973 mOhm
+adc 6: I=6999558 nA V=1630731 uV R=232976 mOhm
+adc 7: I=6999857 nA V=1630787 uV R=232974 mOhm
+adc 8: I=6999670 nA V=1630748 uV R=232975 mOhm
+adc 9: I=6999633 nA V=1630754 uV R=232977 mOhm
+adc 10: I=6999633 nA V=1630762 uV R=232978 mOhm
+adc 11: I=6999408 nA V=1630724 uV R=232980 mOhm
+adc 12: I=6999558 nA V=1630739 uV R=232977 mOhm
+adc 13: I=6999297 nA V=1630697 uV R=232980 mOhm
+adc 14: I=6999521 nA V=1630718 uV R=232976 mOhm
+adc 15: I=6999521 nA V=1630747 uV R=232980 mOhm
+adc 16: I=6999558 nA V=1630747 uV R=232979 mOhm
+adc 17: I=6999446 nA V=1630720 uV R=232978 mOhm
+adc 18: I=6999558 nA V=1630739 uV R=232977 mOhm
+adc 19: I=6999408 nA V=1630705 uV R=232978 mOhm
+adc 20: I=6999408 nA V=1630737 uV R=232982 mOhm
+adc 21: I=6999558 nA V=1630753 uV R=232979 mOhm
+adc 22: I=6999484 nA V=1630755 uV R=232982 mOhm
+adc 23: I=6999521 nA V=1630745 uV R=232979 mOhm
+adc 24: I=6999484 nA V=1630738 uV R=232980 mOhm
+adc 25: I=6999408 nA V=1630711 uV R=232978 mOhm
+tc current 8
+ThermalControl current target: 8000 uA, status=OK (0)
+tc status
+TC: mode=CURRENT enabled=1 fault=0 status=OK (0)
+TC target: temp=0 mC error=0 mC current=8000 uA integral=0 uA drive=175 mV
+TC measured: temp=0 mC current=8001 uA voltage=1864 mV power=14912 uW R=232958 mOhm
+adcs 25
+AD7190 sync samples: count=25
+adc 1: I=8000467 nA V=1863794 uV R=232961 mOhm
+adc 2: I=8000691 nA V=1863808 uV R=232956 mOhm
+adc 3: I=8000728 nA V=1863826 uV R=232957 mOhm
+adc 4: I=8000728 nA V=1863828 uV R=232957 mOhm
+adc 5: I=8000691 nA V=1863839 uV R=232960 mOhm
+adc 6: I=8000765 nA V=1863839 uV R=232958 mOhm
+adc 7: I=8000802 nA V=1863865 uV R=232960 mOhm
+adc 8: I=8000691 nA V=1863849 uV R=232961 mOhm
+adc 9: I=8000654 nA V=1863852 uV R=232963 mOhm
+adc 10: I=8000765 nA V=1863866 uV R=232961 mOhm
+adc 11: I=8000691 nA V=1863855 uV R=232962 mOhm
+adc 12: I=8000840 nA V=1863886 uV R=232961 mOhm
+adc 13: I=8000728 nA V=1863837 uV R=232958 mOhm
+adc 14: I=8000654 nA V=1863852 uV R=232963 mOhm
+adc 15: I=8000691 nA V=1863873 uV R=232964 mOhm
+adc 16: I=8000691 nA V=1863851 uV R=232961 mOhm
+adc 17: I=8000579 nA V=1863824 uV R=232961 mOhm
+adc 18: I=8000579 nA V=1863818 uV R=232960 mOhm
+adc 19: I=8000691 nA V=1863822 uV R=232958 mOhm
+adc 20: I=8000542 nA V=1863815 uV R=232961 mOhm
+adc 21: I=8000728 nA V=1863852 uV R=232960 mOhm
+adc 22: I=8000467 nA V=1863806 uV R=232962 mOhm
+adc 23: I=8000691 nA V=1863830 uV R=232959 mOhm
+adc 24: I=8000654 nA V=1863829 uV R=232960 mOhm
+adc 25: I=8000616 nA V=1863848 uV R=232963 mOhm
+
