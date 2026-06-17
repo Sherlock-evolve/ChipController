@@ -71,6 +71,9 @@ static uint8_t s_adc_stream_enabled = 0u;
 static uint32_t s_adc_stream_period_ms = APP_ADC_STREAM_DEFAULT_PERIOD_MS;
 static uint32_t s_adc_stream_next_ms = 0u;
 static uint32_t s_adc_stream_index = 0u;
+static uint8_t s_adc_filter_valid = 0u;
+static float s_adc_filter_current_a = 0.0f;
+static float s_adc_filter_voltage_v = 0.0f;
 
 /* USER CODE END PV */
 
@@ -99,6 +102,7 @@ static void App_PrintAdcCsvSample(uint32_t index, uint32_t tick_ms);
 static uint8_t App_ParseFloat(const char *text, float *value);
 static uint8_t App_ParseUint32(const char *text, uint32_t *value);
 static int32_t App_FloatToMilli(float value);
+static int32_t App_FloatToMicro(float value);
 
 /* USER CODE END PFP */
 
@@ -449,8 +453,6 @@ static void App_PrintAdcSamples(uint32_t count)
 
 static void App_PrintAdcFilteredSamples(uint32_t count)
 {
-  float current_filtered_a = 0.0f;
-  float voltage_filtered_v = 0.0f;
   uint32_t index;
 
   BoardUart_Printf(BOARD_UART_PORT_DEBUG,
@@ -477,27 +479,28 @@ static void App_PrintAdcFilteredSamples(uint32_t count)
       return;
     }
 
-    if (index == 0u)
+    if (s_adc_filter_valid == 0u)
     {
-      current_filtered_a = sample.current_a;
-      voltage_filtered_v = sample.load_voltage_v;
+      s_adc_filter_current_a = sample.current_a;
+      s_adc_filter_voltage_v = sample.load_voltage_v;
+      s_adc_filter_valid = 1u;
     }
     else
     {
-      current_filtered_a += APP_ADC_FILTER_ALPHA * (sample.current_a - current_filtered_a);
-      voltage_filtered_v += APP_ADC_FILTER_ALPHA * (sample.load_voltage_v - voltage_filtered_v);
+      s_adc_filter_current_a += APP_ADC_FILTER_ALPHA * (sample.current_a - s_adc_filter_current_a);
+      s_adc_filter_voltage_v += APP_ADC_FILTER_ALPHA * (sample.load_voltage_v - s_adc_filter_voltage_v);
     }
 
-    current_abs_a = (current_filtered_a < 0.0f) ? -current_filtered_a : current_filtered_a;
-    voltage_abs_v = (voltage_filtered_v < 0.0f) ? -voltage_filtered_v : voltage_filtered_v;
+    current_abs_a = (s_adc_filter_current_a < 0.0f) ? -s_adc_filter_current_a : s_adc_filter_current_a;
+    voltage_abs_v = (s_adc_filter_voltage_v < 0.0f) ? -s_adc_filter_voltage_v : s_adc_filter_voltage_v;
     resistance_ohm = (current_abs_a > 0.000001f) ? (voltage_abs_v / current_abs_a) : 0.0f;
 
     BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                     "adcf %lu: I=%ld nA V=%ld uV R=%ld mOhm status current=0x%02X voltage=0x%02X\r\n",
+                     "adcf %lu: I=%ld nA V=%ld uV R=%ld uOhm status current=0x%02X voltage=0x%02X\r\n",
                      (unsigned long)(index + 1u),
-                     (long)App_FloatToMilli(current_filtered_a * 1000000.0f),
-                     (long)App_FloatToMilli(voltage_filtered_v * 1000.0f),
-                     (long)App_FloatToMilli(resistance_ohm),
+                     (long)App_FloatToMilli(s_adc_filter_current_a * 1000000.0f),
+                     (long)App_FloatToMilli(s_adc_filter_voltage_v * 1000.0f),
+                     (long)App_FloatToMicro(resistance_ohm),
                      sample.current_adc_status,
                      sample.voltage_adc_status);
   }
@@ -694,6 +697,16 @@ static int32_t App_FloatToMilli(float value)
   }
 
   return (int32_t)((value * 1000.0f) - 0.5f);
+}
+
+static int32_t App_FloatToMicro(float value)
+{
+  if (value >= 0.0f)
+  {
+    return (int32_t)((value * 1000000.0f) + 0.5f);
+  }
+
+  return (int32_t)((value * 1000000.0f) - 0.5f);
 }
 
 /* USER CODE END 0 */
