@@ -391,7 +391,6 @@ class MainWindow(QMainWindow):
         self.adc_status_label = QLabel("--")
         self.control_mode = QLabel("--")
         self.control_drive = QLabel("--")
-        self.board_temp = QLabel("--")
         self.chip_temp = QLabel("--")
         self.stage_temp = QLabel("--")
 
@@ -402,7 +401,6 @@ class MainWindow(QMainWindow):
             ("ADC 状态", self.adc_status_label),
             ("控制模式", self.control_mode),
             ("驱动电压", self.control_drive),
-            ("板载/控制温度", self.board_temp),
             ("芯片温度", self.chip_temp),
             ("冷台温度", self.stage_temp),
         ]
@@ -531,19 +529,6 @@ class MainWindow(QMainWindow):
         if drive is not None:
             self.control_drive.setText(f"{drive} mV")
 
-        temp = values.get("temp") or values.get("temp_mC")
-        target = values.get("target") or values.get("target_mC")
-        if temp is not None:
-            try:
-                temp_c = int(temp) / 1000.0
-                if target is not None:
-                    target_c = int(target) / 1000.0
-                    self.board_temp.setText(f"{temp_c:.3f} C / target {target_c:.3f} C")
-                else:
-                    self.board_temp.setText(f"{temp_c:.3f} C")
-            except ValueError:
-                self.board_temp.setText(str(temp))
-
     @Slot(dict)
     def _update_board_temperature(self, values):
         chip_temp = values.get("chip_mC")
@@ -553,7 +538,6 @@ class MainWindow(QMainWindow):
         if chip_temp is not None:
             try:
                 temp_c = int(chip_temp) / 1000.0
-                self.board_temp.setText(f"{temp_c:.3f} C")
                 self.chip_temp.setText(f"{temp_c:.3f} C")
             except ValueError:
                 self.chip_temp.setText(str(chip_temp))
