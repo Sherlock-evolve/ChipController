@@ -13,8 +13,9 @@ PySide6 上位机，用于当前 ChipController 板的调试和后续温控联�
   - 电压 ADC：`voltage_uV`
   - 外接负载电阻：`resistance_mOhm`
   - 两个 AD7190 状态字节
-  - `tc status` 中的控制状态、驱动电压、板载/控制温度
-- 可选连接项目温度设备串口，按 `docs/03 冷冻台 和 04 芯片通信协议2026-06-02.xlsx` 的二进制协议读取：
+  - `tc status` 中的控制状态、驱动电压
+  - ChipController `temp` 命令返回的芯片温度、冷台温度
+- 保留可选直连温度设备调试功能，按 `docs/03 冷冻台 和 04 芯片通信协议2026-06-02.xlsx` 的二进制协议读取：
   - `0x1E`：显示芯片当前温度
   - `0x1F`：显示冷台当前温度
 
@@ -30,8 +31,9 @@ python3 host_qt/chip_controller_gui.py
 
 ## 串口分工
 
-- `ChipController 串口`：接 Type-C 调试口，默认 `115200`。
-- `温度设备协议`：接冷冻台/温度控制相关固件的串口，默认 `115200`，可按实际设备改成 `19200` 或 `9600`。
+- 方案B正常使用：电脑只连接 `ChipController 串口`，也就是 Type-C 调试口，默认 `115200`。
+- 外部芯片板/温度设备接 ChipController 的 `CN4` RS485，由 ChipController 主动发送 `0x1E`、`0x1F` 查询温度。
+- `温度设备协议` 串口区域仅用于绕过 ChipController、直接调试温度设备；方案B正常使用时不用连接。
 
 如果同时插了 Type-C 和 USB-RS485，建议用 `/dev/serial/by-id/` 识别实际设备。
 

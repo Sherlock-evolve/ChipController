@@ -309,7 +309,7 @@ static void App_PrintHelp(void)
                         "  id       - read AD7190 IDs\r\n"
                         "  zero     - force DAC outputs to 0V\r\n"
                         "  r42test  - run safe internal 30-ohm self-test\r\n"
-                        "  temp     - read optional SHT3x temperature sensor\r\n"
+                        "  temp     - read board/external temperature\r\n"
                         "  rs485 tx - send a test line on CN4 RS485\r\n"
                         "  adcs <n> - read synchronized AD7190 samples\r\n"
                         "  adcstream start [ms] - stream synchronized ADC CSV\r\n"
@@ -324,15 +324,30 @@ static void App_PrintHelp(void)
 static void App_PrintTemperature(void)
 {
   BoardTemperature_Sample sample;
+  BoardTemperature_Sample stage_sample;
   BoardTemperature_Status status;
+  BoardTemperature_Status stage_status = BOARD_TEMPERATURE_NOT_PRESENT;
 
   status = BoardTemperature_Read(&sample);
   if (status == BOARD_TEMPERATURE_OK)
   {
-    BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                     "Temperature: %ld mC, humidity=%ld mpermil\r\n",
-                     (long)App_FloatToMilli(sample.temperature_c),
-                     (long)App_FloatToMilli(sample.humidity_percent));
+    stage_status = BoardTemperature_ReadStage(&stage_sample);
+    if (stage_status == BOARD_TEMPERATURE_OK)
+    {
+      BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                       "Temperature: chip_mC=%ld stage_mC=%ld humidity_mpermil=%ld\r\n",
+                       (long)App_FloatToMilli(sample.temperature_c),
+                       (long)App_FloatToMilli(stage_sample.temperature_c),
+                       (long)App_FloatToMilli(sample.humidity_percent));
+    }
+    else
+    {
+      BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                       "Temperature: chip_mC=%ld stage_status=%s humidity_mpermil=%ld\r\n",
+                       (long)App_FloatToMilli(sample.temperature_c),
+                       BoardTemperature_StatusText(stage_status),
+                       (long)App_FloatToMilli(sample.humidity_percent));
+    }
   }
   else
   {

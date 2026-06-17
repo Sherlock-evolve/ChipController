@@ -36,6 +36,7 @@ typedef struct
 
 BoardTemperature_Status BoardTemperature_Init(void);
 BoardTemperature_Status BoardTemperature_Read(BoardTemperature_Sample *sample);
+BoardTemperature_Status BoardTemperature_ReadStage(BoardTemperature_Sample *sample);
 uint8_t BoardTemperature_IsPresent(void);
 const char *BoardTemperature_StatusText(BoardTemperature_Status status);
 

@@ -85,8 +85,8 @@ BoardUart_Status BoardUart_Write(BoardUart_Port port, const uint8_t *data, size_
 
   if (port == BOARD_UART_PORT_RS485)
   {
-    HAL_Delay(BOARD_UART_RS485_TURNAROUND_DELAY_MS);
     board_uart_rs485_set_tx(0u);
+    HAL_Delay(BOARD_UART_RS485_TURNAROUND_DELAY_MS);
   }
 
   return board_uart_from_hal(hal_status);

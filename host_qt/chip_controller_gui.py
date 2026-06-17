@@ -91,6 +91,7 @@ class ChipAsciiClient(QObject):
     logLine = Signal(str)
     sampleReceived = Signal(object)
     controlStatusReceived = Signal(dict)
+    boardTemperatureReceived = Signal(dict)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -150,6 +151,9 @@ class ChipAsciiClient(QObject):
     def request_status(self):
         self.send_command("tc status")
 
+    def request_temperature(self):
+        self.send_command("temp")
+
     @Slot()
     def _send_next_byte(self):
         if not self._tx_queue or not self.port.isOpen():
@@ -187,6 +191,10 @@ class ChipAsciiClient(QObject):
 
         if line.startswith("OK TC "):
             self.controlStatusReceived.emit(parse_key_values(line))
+            return
+
+        if line.startswith("Temperature: "):
+            self.boardTemperatureReceived.emit(parse_key_values(line))
             return
 
         if line.startswith("TC: "):
@@ -319,7 +327,7 @@ class TemperatureProtocolClient(QObject):
 
             expected_crc = frame[-4] | (frame[-3] << 8)
             actual_crc = crc16_modbus(frame[1:-4])
-            if expected_crc != actual_crc:
+            if expected_crc not in (0x0000, actual_crc):
                 self.logLine.emit(f"TEMP RX bad crc expected=0x{expected_crc:04X} actual=0x{actual_crc:04X}")
                 continue
 
@@ -522,6 +530,7 @@ class MainWindow(QMainWindow):
         self.chip.logLine.connect(self._append_log)
         self.chip.sampleReceived.connect(self._update_sample)
         self.chip.controlStatusReceived.connect(self._update_control_status)
+        self.chip.boardTemperatureReceived.connect(self._update_board_temperature)
 
         self.temp.connectedChanged.connect(self._temp_connected_changed)
         self.temp.logLine.connect(self._append_log)
@@ -593,6 +602,7 @@ class MainWindow(QMainWindow):
     def _poll_chip_status(self):
         if self.poll_status.isChecked() and self.chip.is_open():
             self.chip.request_status()
+            self.chip.request_temperature()
 
     @Slot(str)
     def _append_log(self, line):
@@ -632,6 +642,29 @@ class MainWindow(QMainWindow):
                     self.board_temp.setText(f"{temp_c:.3f} C")
             except ValueError:
                 self.board_temp.setText(str(temp))
+
+    @Slot(dict)
+    def _update_board_temperature(self, values):
+        chip_temp = values.get("chip_mC")
+        stage_temp = values.get("stage_mC")
+        stage_status = values.get("stage_status")
+
+        if chip_temp is not None:
+            try:
+                temp_c = int(chip_temp) / 1000.0
+                self.board_temp.setText(f"{temp_c:.3f} C")
+                self.chip_temp.setText(f"{temp_c:.3f} C")
+            except ValueError:
+                self.chip_temp.setText(str(chip_temp))
+
+        if stage_temp is not None:
+            try:
+                temp_c = int(stage_temp) / 1000.0
+                self.stage_temp.setText(f"{temp_c:.3f} C")
+            except ValueError:
+                self.stage_temp.setText(str(stage_temp))
+        elif stage_status is not None:
+            self.stage_temp.setText(stage_status)
 
     @Slot(float, int)
     def _update_chip_temp(self, temperature_c, raw):
