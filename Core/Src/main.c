@@ -41,9 +41,7 @@
 #define APP_DEBUG_LINE_SIZE 64u
 #define APP_ADC_SAMPLE_DEFAULT_COUNT 10u
 #define APP_ADC_SAMPLE_MAX_COUNT 100u
-#define APP_ADC_STREAM_DEFAULT_PERIOD_MS 100u
-#define APP_ADC_STREAM_MIN_PERIOD_MS 50u
-#define APP_ADC_STREAM_MAX_PERIOD_MS 60000u
+
 #define APP_ADC_FILTER_ALPHA 0.25f
 
 /* USER CODE END PD */
@@ -67,10 +65,7 @@ UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-static uint8_t s_adc_stream_enabled = 0u;
-static uint32_t s_adc_stream_period_ms = APP_ADC_STREAM_DEFAULT_PERIOD_MS;
-static uint32_t s_adc_stream_next_ms = 0u;
-static uint32_t s_adc_stream_index = 0u;
+
 static uint8_t s_adc_filter_valid = 0u;
 static float s_adc_filter_current_a = 0.0f;
 static float s_adc_filter_voltage_v = 0.0f;
@@ -94,11 +89,7 @@ static void App_PrintTemperature(void);
 static void App_PrintThermalControl(void);
 static void App_PrintAdcSamples(uint32_t count);
 static void App_PrintAdcFilteredSamples(uint32_t count);
-static void App_StartAdcStream(uint32_t period_ms);
-static void App_StopAdcStream(void);
-static void App_ServiceAdcStream(uint32_t now_ms);
-static void App_PrintAdcCsvHeader(void);
-static void App_PrintAdcCsvSample(uint32_t index, uint32_t tick_ms);
+
 static uint8_t App_ParseFloat(const char *text, float *value);
 static uint8_t App_ParseUint32(const char *text, uint32_t *value);
 static int32_t App_FloatToMilli(float value);
@@ -239,39 +230,7 @@ static void App_ProcessDebugLine(const char *line)
 
     App_PrintAdcFilteredSamples(count);
   }
-  else if ((strcmp(line, "adcstream") == 0) || (strcmp(line, "adcstream start") == 0))
-  {
-    App_StartAdcStream(APP_ADC_STREAM_DEFAULT_PERIOD_MS);
-  }
-  else if (strncmp(line, "adcstream start ", 16u) == 0)
-  {
-    uint32_t period_ms = 0u;
 
-    if ((App_ParseUint32(&line[16], &period_ms) == 0u) ||
-        (period_ms < APP_ADC_STREAM_MIN_PERIOD_MS) ||
-        (period_ms > APP_ADC_STREAM_MAX_PERIOD_MS))
-    {
-      BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                       "Bad argument. Usage: adcstream start <%lu-%lu ms>\r\n",
-                       (unsigned long)APP_ADC_STREAM_MIN_PERIOD_MS,
-                       (unsigned long)APP_ADC_STREAM_MAX_PERIOD_MS);
-      return;
-    }
-
-    App_StartAdcStream(period_ms);
-  }
-  else if (strcmp(line, "adcstream stop") == 0)
-  {
-    App_StopAdcStream();
-  }
-  else if (strcmp(line, "adcstream status") == 0)
-  {
-    BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                     "ADCSTREAM enabled=%u period_ms=%lu index=%lu\r\n",
-                     s_adc_stream_enabled,
-                     (unsigned long)s_adc_stream_period_ms,
-                     (unsigned long)s_adc_stream_index);
-  }
   else if (strcmp(line, "tc status") == 0)
   {
     App_PrintThermalControl();
@@ -339,8 +298,7 @@ static void App_PrintHelp(void)
                         "  rs485 tx - send a test line on CN4 RS485\r\n"
                         "  adcs <n> - read synchronized AD7190 samples\r\n"
                         "  adcf <n> - read filtered AD7190 samples\r\n"
-                        "  adcstream start [ms] - stream synchronized ADC CSV\r\n"
-                        "  adcstream stop       - stop ADC CSV stream\r\n"
+
                         "  tc status      - show control loop state\r\n"
                         "  tc stop        - stop control and zero output\r\n"
                         "  tc current <mA> - start current loop\r\n"
@@ -504,92 +462,6 @@ static void App_PrintAdcFilteredSamples(uint32_t count)
   }
 }
 
-static void App_StartAdcStream(uint32_t period_ms)
-{
-  s_adc_stream_enabled = 1u;
-  s_adc_stream_period_ms = period_ms;
-  s_adc_stream_next_ms = HAL_GetTick();
-  s_adc_stream_index = 0u;
-
-  BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                   "ADCSTREAM START period_ms=%lu\r\n",
-                   (unsigned long)s_adc_stream_period_ms);
-  App_PrintAdcCsvHeader();
-}
-
-static void App_StopAdcStream(void)
-{
-  if (s_adc_stream_enabled != 0u)
-  {
-    s_adc_stream_enabled = 0u;
-    BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                     "ADCSTREAM STOP samples=%lu\r\n",
-                     (unsigned long)s_adc_stream_index);
-  }
-  else
-  {
-    BoardUart_WriteString(BOARD_UART_PORT_DEBUG, "ADCSTREAM STOP already_off\r\n", 100u);
-  }
-}
-
-static void App_ServiceAdcStream(uint32_t now_ms)
-{
-  if (s_adc_stream_enabled == 0u)
-  {
-    return;
-  }
-
-  if ((int32_t)(now_ms - s_adc_stream_next_ms) < 0)
-  {
-    return;
-  }
-
-  s_adc_stream_index++;
-  App_PrintAdcCsvSample(s_adc_stream_index, now_ms);
-  s_adc_stream_next_ms = now_ms + s_adc_stream_period_ms;
-}
-
-static void App_PrintAdcCsvHeader(void)
-{
-  BoardUart_WriteString(BOARD_UART_PORT_DEBUG,
-                        "index,tick_ms,status,current_nA,voltage_uV,resistance_mOhm,current_adc_status,voltage_adc_status\r\n",
-                        100u);
-}
-
-static void App_PrintAdcCsvSample(uint32_t index, uint32_t tick_ms)
-{
-  ChipMeasure_SyncSample sample;
-  ChipMeasure_Status status;
-  float current_abs_a;
-  float voltage_abs_v;
-  float resistance_ohm;
-
-  status = ChipMeasure_ReadSynchronized(CHIP_MEASURE_PATH_EXTERNAL, &sample);
-  if (status != CHIP_MEASURE_OK)
-  {
-    BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                     "%lu,%lu,%d,,,,,\r\n",
-                     (unsigned long)index,
-                     (unsigned long)tick_ms,
-                     (int)status);
-    return;
-  }
-
-  current_abs_a = (sample.current_a < 0.0f) ? -sample.current_a : sample.current_a;
-  voltage_abs_v = (sample.load_voltage_v < 0.0f) ? -sample.load_voltage_v : sample.load_voltage_v;
-  resistance_ohm = (current_abs_a > 0.000001f) ? (voltage_abs_v / current_abs_a) : 0.0f;
-
-  BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                   "%lu,%lu,%d,%ld,%ld,%ld,%u,%u\r\n",
-                   (unsigned long)index,
-                   (unsigned long)tick_ms,
-                   (int)status,
-                   (long)App_FloatToMilli(sample.current_a * 1000000.0f),
-                   (long)App_FloatToMilli(sample.load_voltage_v * 1000.0f),
-                   (long)App_FloatToMilli(resistance_ohm),
-                   sample.current_adc_status,
-                   sample.voltage_adc_status);
-}
 
 static uint8_t App_ParseFloat(const char *text, float *value)
 {
@@ -833,7 +705,6 @@ int main(void)
 
     BoardProtocol_Poll();
     (void)ThermalControl_Service(HAL_GetTick());
-    App_ServiceAdcStream(HAL_GetTick());
   }
   /* USER CODE END 3 */
 }

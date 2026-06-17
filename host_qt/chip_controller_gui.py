@@ -160,7 +160,6 @@ class ChipAsciiClient(QObject):
         self._adcf_pending = False
         self._adcf_expected_count = 0
         self._adcf_last_sample = None
-        self.send_command("adcstream stop")
 
     def request_filtered_adc(self, count):
         if self._adcf_pending:

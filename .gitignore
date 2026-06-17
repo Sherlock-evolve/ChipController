@@ -19,6 +19,7 @@ __pycache__/
 # Claude tool artifacts
 .agents/
 .codex/
+CLAUDE.md
 
 # OS
 .DS_Store
