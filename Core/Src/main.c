@@ -243,6 +243,7 @@ static void App_ProcessDebugLine(const char *line)
                      "ThermalControl stop: %s (%d)\r\n",
                      ThermalControl_StatusText(status),
                      (int)status);
+    App_ResetAdcFilter();
     App_PrintThermalControl();
   }
   else if (strncmp(line, "tc current ", 11u) == 0)
@@ -261,6 +262,7 @@ static void App_ProcessDebugLine(const char *line)
                      (long)App_FloatToMilli(target_ma),
                      ThermalControl_StatusText(status),
                      (int)status);
+    App_ResetAdcFilter();
   }
   else if (strncmp(line, "tc temp ", 8u) == 0)
   {
@@ -278,6 +280,7 @@ static void App_ProcessDebugLine(const char *line)
                      (long)App_FloatToMilli(target_c),
                      ThermalControl_StatusText(status),
                      (int)status);
+    App_ResetAdcFilter();
   }
   else
   {
@@ -1268,6 +1271,11 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void App_ResetAdcFilter(void)
+{
+  s_adc_filter_valid = 0u;
+}
 
 /* USER CODE END 4 */
 
