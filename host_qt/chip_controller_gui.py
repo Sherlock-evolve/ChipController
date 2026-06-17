@@ -41,6 +41,22 @@ class AdcSample:
     voltage_adc_status: int
 
 
+@dataclass
+class AdcFilteredSample:
+    count: int
+    current_avg_na: int
+    current_min_na: int
+    current_max_na: int
+    current_pp_na: int
+    voltage_avg_uv: int
+    voltage_min_uv: int
+    voltage_max_uv: int
+    voltage_pp_uv: int
+    resistance_avg_mohm: int
+    current_adc_status: int
+    voltage_adc_status: int
+
+
 def list_serial_ports():
     ports = []
     for info in QSerialPortInfo.availablePorts():
@@ -84,10 +100,15 @@ def parse_csv_sample(line):
         return None
 
 
+def parse_int_auto(text):
+    return int(text, 0)
+
+
 class ChipAsciiClient(QObject):
     connectedChanged = Signal(bool)
     logLine = Signal(str)
     sampleReceived = Signal(object)
+    filteredSampleReceived = Signal(object)
     controlStatusReceived = Signal(dict)
     boardTemperatureReceived = Signal(dict)
 
@@ -101,6 +122,7 @@ class ChipAsciiClient(QObject):
         self._tx_timer = QTimer(self)
         self._tx_timer.timeout.connect(self._send_next_byte)
         self._last_tc = {}
+        self._last_adcf = {}
 
     def is_open(self):
         return self.port.isOpen()
@@ -139,12 +161,11 @@ class ChipAsciiClient(QObject):
     def stop_control(self):
         self.send_command("tc stop")
 
-    def start_stream(self, period_ms):
-        self.send_command("adcstream stop")
-        self.send_command(f"adcstream start {period_ms}")
-
     def stop_stream(self):
         self.send_command("adcstream stop")
+
+    def request_filtered_adc(self, count):
+        self.send_command(f"adcf {count}")
 
     def request_status(self):
         self.send_command("tc status")
@@ -187,6 +208,9 @@ class ChipAsciiClient(QObject):
             self.sampleReceived.emit(sample)
             return
 
+        if self._handle_filtered_adc_line(line):
+            return
+
         if line.startswith("OK TC "):
             self.controlStatusReceived.emit(parse_key_values(line))
             return
@@ -207,6 +231,64 @@ class ChipAsciiClient(QObject):
             self._last_tc.update(parse_key_values(line))
             self.controlStatusReceived.emit(dict(self._last_tc))
 
+    def _handle_filtered_adc_line(self, line):
+        try:
+            if line.startswith("AD7190 filtered samples:"):
+                values = parse_key_values(line)
+                self._last_adcf = {"count": parse_int_auto(values.get("count", "0"))}
+                return True
+
+            if line.startswith("I: "):
+                values = parse_key_values(line)
+                self._last_adcf.update(
+                    current_avg_na=parse_int_auto(values.get("avg", "0")),
+                    current_min_na=parse_int_auto(values.get("min", "0")),
+                    current_max_na=parse_int_auto(values.get("max", "0")),
+                    current_pp_na=parse_int_auto(values.get("pp", "0")),
+                )
+                return True
+
+            if line.startswith("V: "):
+                values = parse_key_values(line)
+                self._last_adcf.update(
+                    voltage_avg_uv=parse_int_auto(values.get("avg", "0")),
+                    voltage_min_uv=parse_int_auto(values.get("min", "0")),
+                    voltage_max_uv=parse_int_auto(values.get("max", "0")),
+                    voltage_pp_uv=parse_int_auto(values.get("pp", "0")),
+                )
+                return True
+
+            if line.startswith("R: "):
+                values = parse_key_values(line)
+                self._last_adcf.update(
+                    resistance_avg_mohm=parse_int_auto(values.get("avg", "0")),
+                    current_adc_status=parse_int_auto(values.get("current", "0")),
+                    voltage_adc_status=parse_int_auto(values.get("voltage", "0")),
+                )
+
+                required = {
+                    "count",
+                    "current_avg_na",
+                    "current_min_na",
+                    "current_max_na",
+                    "current_pp_na",
+                    "voltage_avg_uv",
+                    "voltage_min_uv",
+                    "voltage_max_uv",
+                    "voltage_pp_uv",
+                    "resistance_avg_mohm",
+                    "current_adc_status",
+                    "voltage_adc_status",
+                }
+                if required.issubset(self._last_adcf):
+                    self.filteredSampleReceived.emit(AdcFilteredSample(**self._last_adcf))
+                return True
+        except (TypeError, ValueError):
+            self._last_adcf = {}
+            return True
+
+        return False
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -218,6 +300,9 @@ class MainWindow(QMainWindow):
         self._build_ui()
         self._connect_signals()
         self.refresh_ports()
+
+        self.adc_filter_timer = QTimer(self)
+        self.adc_filter_timer.timeout.connect(self._request_filtered_adc)
 
         self.status_timer = QTimer(self)
         self.status_timer.timeout.connect(self._poll_chip_status)
@@ -278,17 +363,25 @@ class MainWindow(QMainWindow):
         current_row.addWidget(self.stop_current)
         form.addRow("目标电流 mA", current_row)
 
-        self.stream_period = QSpinBox()
-        self.stream_period.setRange(50, 60000)
-        self.stream_period.setValue(500)
-        self.stream_period.setSuffix(" ms")
-        self.start_stream = QPushButton("开始ADC流")
-        self.stop_stream = QPushButton("停止ADC流")
-        stream_row = QHBoxLayout()
-        stream_row.addWidget(self.stream_period)
-        stream_row.addWidget(self.start_stream)
-        stream_row.addWidget(self.stop_stream)
-        form.addRow("采样周期", stream_row)
+        self.filter_count = QSpinBox()
+        self.filter_count.setRange(1, 1000)
+        self.filter_count.setValue(50)
+        self.filter_count.setSuffix(" 点")
+
+        self.filter_period = QSpinBox()
+        self.filter_period.setRange(1000, 60000)
+        self.filter_period.setValue(1000)
+        self.filter_period.setSuffix(" ms")
+
+        self.start_stream = QPushButton("开始滤波采样")
+        self.stop_stream = QPushButton("停止滤波采样")
+
+        filter_row = QHBoxLayout()
+        filter_row.addWidget(self.filter_count)
+        filter_row.addWidget(self.filter_period)
+        filter_row.addWidget(self.start_stream)
+        filter_row.addWidget(self.stop_stream)
+        form.addRow("滤波采样", filter_row)
 
         self.poll_status = QCheckBox("轮询 tc status")
         self.poll_status.setChecked(True)
@@ -341,11 +434,12 @@ class MainWindow(QMainWindow):
         self.set_current.clicked.connect(self._set_current)
         self.stop_current.clicked.connect(self._stop_current)
         self.start_stream.clicked.connect(self._start_stream)
-        self.stop_stream.clicked.connect(self.chip.stop_stream)
+        self.stop_stream.clicked.connect(self._stop_stream)
 
         self.chip.connectedChanged.connect(self._chip_connected_changed)
         self.chip.logLine.connect(self._append_log)
         self.chip.sampleReceived.connect(self._update_sample)
+        self.chip.filteredSampleReceived.connect(self._update_filtered_sample)
         self.chip.controlStatusReceived.connect(self._update_control_status)
         self.chip.boardTemperatureReceived.connect(self._update_board_temperature)
 
@@ -387,7 +481,17 @@ class MainWindow(QMainWindow):
         self.chip.send_command("zero")
 
     def _start_stream(self):
-        self.chip.start_stream(self.stream_period.value())
+        self.chip.stop_stream()
+        self._request_filtered_adc()
+        self.adc_filter_timer.start(self.filter_period.value())
+
+    def _stop_stream(self):
+        self.adc_filter_timer.stop()
+        self.chip.stop_stream()
+
+    def _request_filtered_adc(self):
+        if self.chip.is_open():
+            self.chip.request_filtered_adc(self.filter_count.value())
 
     def _poll_chip_status(self):
         if self.poll_status.isChecked() and self.chip.is_open():
@@ -406,6 +510,21 @@ class MainWindow(QMainWindow):
         self.voltage_label.setText(f"{sample.voltage_uv / 1000.0:.3f} mV  ({sample.voltage_uv} uV)")
         self.resistance_label.setText(f"{sample.resistance_mohm / 1000.0:.6f} ohm")
         self.adc_status_label.setText(f"current=0x{sample.current_adc_status:02X}, voltage=0x{sample.voltage_adc_status:02X}")
+
+    @Slot(object)
+    def _update_filtered_sample(self, sample):
+        self.sample_index.setText(f"filtered {sample.count}")
+        self.sample_tick.setText("adcf")
+        self.current_label.setText(
+            f"{sample.current_avg_na / 1_000_000.0:.6f} mA avg  (pp {sample.current_pp_na} nA)"
+        )
+        self.voltage_label.setText(
+            f"{sample.voltage_avg_uv / 1000.0:.3f} mV avg  (pp {sample.voltage_pp_uv} uV)"
+        )
+        self.resistance_label.setText(f"{sample.resistance_avg_mohm / 1000.0:.6f} ohm avg")
+        self.adc_status_label.setText(
+            f"OR current=0x{sample.current_adc_status:02X}, voltage=0x{sample.voltage_adc_status:02X}"
+        )
 
     @Slot(dict)
     def _update_control_status(self, values):

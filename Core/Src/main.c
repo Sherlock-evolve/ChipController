@@ -44,6 +44,7 @@
 #define APP_ADC_STREAM_DEFAULT_PERIOD_MS 100u
 #define APP_ADC_STREAM_MIN_PERIOD_MS 50u
 #define APP_ADC_STREAM_MAX_PERIOD_MS 60000u
+#define APP_ADC_FILTER_ALPHA 0.25f
 
 /* USER CODE END PD */
 
@@ -89,6 +90,7 @@ static void App_PrintHelp(void);
 static void App_PrintTemperature(void);
 static void App_PrintThermalControl(void);
 static void App_PrintAdcSamples(uint32_t count);
+static void App_PrintAdcFilteredSamples(uint32_t count);
 static void App_StartAdcStream(uint32_t period_ms);
 static void App_StopAdcStream(void);
 static void App_ServiceAdcStream(uint32_t now_ms);
@@ -213,6 +215,26 @@ static void App_ProcessDebugLine(const char *line)
 
     App_PrintAdcSamples(count);
   }
+  else if (strcmp(line, "adcf") == 0)
+  {
+    App_PrintAdcFilteredSamples(APP_ADC_SAMPLE_DEFAULT_COUNT);
+  }
+  else if (strncmp(line, "adcf ", 5u) == 0)
+  {
+    uint32_t count = 0u;
+
+    if ((App_ParseUint32(&line[5], &count) == 0u) ||
+        (count == 0u) ||
+        (count > APP_ADC_SAMPLE_MAX_COUNT))
+    {
+      BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                       "Bad argument. Usage: adcf <1-%lu>\r\n",
+                       (unsigned long)APP_ADC_SAMPLE_MAX_COUNT);
+      return;
+    }
+
+    App_PrintAdcFilteredSamples(count);
+  }
   else if ((strcmp(line, "adcstream") == 0) || (strcmp(line, "adcstream start") == 0))
   {
     App_StartAdcStream(APP_ADC_STREAM_DEFAULT_PERIOD_MS);
@@ -312,6 +334,7 @@ static void App_PrintHelp(void)
                         "  temp     - read board/external temperature\r\n"
                         "  rs485 tx - send a test line on CN4 RS485\r\n"
                         "  adcs <n> - read synchronized AD7190 samples\r\n"
+                        "  adcf <n> - read filtered AD7190 samples\r\n"
                         "  adcstream start [ms] - stream synchronized ADC CSV\r\n"
                         "  adcstream stop       - stop ADC CSV stream\r\n"
                         "  tc status      - show control loop state\r\n"
@@ -421,6 +444,62 @@ static void App_PrintAdcSamples(uint32_t count)
                      (long)App_FloatToMilli(sample.current_a * 1000000.0f),
                      (long)App_FloatToMilli(sample.load_voltage_v * 1000.0f),
                      (long)App_FloatToMilli(resistance_ohm));
+  }
+}
+
+static void App_PrintAdcFilteredSamples(uint32_t count)
+{
+  float current_filtered_a = 0.0f;
+  float voltage_filtered_v = 0.0f;
+  uint32_t index;
+
+  BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                   "AD7190 filtered samples: count=%lu alpha=%ld mpermil\r\n",
+                   (unsigned long)count,
+                   (long)App_FloatToMilli(APP_ADC_FILTER_ALPHA));
+
+  for (index = 0u; index < count; index++)
+  {
+    ChipMeasure_SyncSample sample;
+    ChipMeasure_Status status;
+    float current_abs_a;
+    float voltage_abs_v;
+    float resistance_ohm;
+
+    status = ChipMeasure_ReadSynchronized(CHIP_MEASURE_PATH_EXTERNAL, &sample);
+    if (status != CHIP_MEASURE_OK)
+    {
+      BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                       "adcf: sample=%lu status=%s (%d)\r\n",
+                       (unsigned long)(index + 1u),
+                       App_ChipMeasureStatusText(status),
+                       (int)status);
+      return;
+    }
+
+    if (index == 0u)
+    {
+      current_filtered_a = sample.current_a;
+      voltage_filtered_v = sample.load_voltage_v;
+    }
+    else
+    {
+      current_filtered_a += APP_ADC_FILTER_ALPHA * (sample.current_a - current_filtered_a);
+      voltage_filtered_v += APP_ADC_FILTER_ALPHA * (sample.load_voltage_v - voltage_filtered_v);
+    }
+
+    current_abs_a = (current_filtered_a < 0.0f) ? -current_filtered_a : current_filtered_a;
+    voltage_abs_v = (voltage_filtered_v < 0.0f) ? -voltage_filtered_v : voltage_filtered_v;
+    resistance_ohm = (current_abs_a > 0.000001f) ? (voltage_abs_v / current_abs_a) : 0.0f;
+
+    BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                     "adcf %lu: I=%ld nA V=%ld uV R=%ld mOhm status current=0x%02X voltage=0x%02X\r\n",
+                     (unsigned long)(index + 1u),
+                     (long)App_FloatToMilli(current_filtered_a * 1000000.0f),
+                     (long)App_FloatToMilli(voltage_filtered_v * 1000.0f),
+                     (long)App_FloatToMilli(resistance_ohm),
+                     sample.current_adc_status,
+                     sample.voltage_adc_status);
   }
 }
 
