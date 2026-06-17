@@ -10,7 +10,7 @@
 - 外部端子 `I+ / I-`、`V+ / V-`
 - `tc current`、`tc status`、`adcs <n>`、外部路径功率/电阻/保护判断
 
-内部 R42 自检路径不使用这组外部路径零点和增益校准，避免用外部 233.09 ohm 负载校准影响内部 30 ohm 自检。
+内部 R42 自检路径不使用这组外部路径零点和增益校准，避免用外部精密负载校准影响内部 30 ohm 自检。
 
 ## 当前校准系数
 
@@ -19,8 +19,8 @@
 ```c
 #define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000535f
 #define CHIP_MEASURE_VOLTAGE_ZERO_V       0.00000603f
-#define CHIP_MEASURE_CURRENT_GAIN         1.00190f
-#define CHIP_MEASURE_VOLTAGE_GAIN         1.00495f
+#define CHIP_MEASURE_CURRENT_GAIN         1.00091f
+#define CHIP_MEASURE_VOLTAGE_GAIN         1.00329f
 ```
 
 含义：
@@ -180,7 +180,7 @@ V_range = -2 uV 到 0 uV
 使用四线测量得到的标准负载：
 
 ```text
-R_ref = 233.09 ohm
+R_ref = 150.002 ohm
 ```
 
 ### 测量方法
@@ -204,46 +204,53 @@ adcs 25
 已测试范围：
 
 ```text
-1 mA 到 8 mA
+1 mA、2 mA、3 mA、5 mA、7 mA、10 mA、12 mA、13 mA
 ```
 
-注意：使用 233.09 ohm 负载时，不应继续提高到 9 mA 或更高，因为：
+注意：使用 150.002 ohm 负载时，不应继续提高到 14 mA 或更高，因为：
 
 ```text
-233.09 ohm * 9 mA = 2.098 V
+150.002 ohm * 14 mA = 2.100 V
 ```
 
 会超过当前 `THERMAL_CONTROL_MAX_LOAD_VOLTAGE_V = 2.000 V` 的过压保护阈值。
 
 ### 当前增益来源
 
-`CHIP_MEASURE_CURRENT_GAIN = 1.00190f`
+`CHIP_MEASURE_CURRENT_GAIN = 1.00091f`
 
-- 根据 DMM 电压、标准电阻和板载电流读数估算
+- 根据 `log/test_03` 中的 DMM 电压、`150.002 ohm` 标准电阻和板载电流读数加权估算
 - 用于修正电流通道的整体比例误差
 
-`CHIP_MEASURE_VOLTAGE_GAIN = 1.00495f`
+`CHIP_MEASURE_VOLTAGE_GAIN = 1.00329f`
 
-- 在电流零点修正后，使用四线标准电阻 `233.09 ohm` 对 `V/I` 比值做最终修正
-- 目标是使 `adcs` 计算出的电阻接近四线实测值
+- 根据 `log/test_03` 中的 DMM 电压和板载电压读数加权估算
+- 同时使 `adcs` 计算出的电阻接近四线实测值
 
 ## 验证结果
 
-更新零点和增益后，`test_02` 中 1 mA 到 8 mA 的电阻读数已经非常平坦：
+`log/test_03` 使用 `150.002 ohm` 精密电阻重新验证。更新前，使用上一轮增益时，1 mA 到 13 mA 的电阻读数已经非常平坦，但整体偏高：
 
 ```text
 target  R_mean
-1 mA    232.84708 ohm
-2 mA    232.84952 ohm
-3 mA    232.84700 ohm
-4 mA    232.84556 ohm
-5 mA    232.84400 ohm
-6 mA    232.84240 ohm
-7 mA    232.84212 ohm
-8 mA    232.84164 ohm
+1 mA    150.12088 ohm
+2 mA    150.11316 ohm
+3 mA    150.10560 ohm
+5 mA    150.10436 ohm
+7 mA    150.10312 ohm
+10 mA   150.10172 ohm
+12 mA   150.10160 ohm
+13 mA   150.10096 ohm
 ```
 
-在将 `CHIP_MEASURE_VOLTAGE_GAIN` 从 `1.00389f` 调整到 `1.00495f` 后，电阻读数已接近四线实测的 `233.09 ohm`。
+按 DMM 电压和 `150.002 ohm` 参考电阻加权拟合后：
+
+```text
+CHIP_MEASURE_CURRENT_GAIN: 1.00190 -> 1.00091
+CHIP_MEASURE_VOLTAGE_GAIN: 1.00495 -> 1.00329
+```
+
+用该组新增益回算，`test_03` 的平均电阻约为 `150.006 ohm`，接近四线实测的 `150.002 ohm`。
 
 ## 保护限制
 
@@ -257,11 +264,11 @@ THERMAL_CONTROL_MAX_POWER_W          = 0.100f; // 100 mW
 BOARD_OUTPUT_MAX_DRIVE_V             = 0.500f; // 500 mV DAC drive command
 ```
 
-其中 `2 V` 过压保护是外部负载两端电压限制。使用 233.09 ohm 负载时：
+其中 `2 V` 过压保护是外部负载两端电压限制。使用 150.002 ohm 负载时：
 
 ```text
-8 mA -> 1.865 V，接近但低于保护
-9 mA -> 2.098 V，会触发或接近触发过压保护
+13 mA -> 1.950 V，接近但低于保护
+14 mA -> 2.100 V，会触发或接近触发过压保护
 ```
 
 如果后续要验证 10 mA、15 mA、20 mA，应更换较低阻值的精密负载，例如 50 ohm 或 75 ohm。
