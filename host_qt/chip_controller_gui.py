@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-import math
-import struct
 import sys
 from dataclasses import dataclass
 from typing import Optional
@@ -210,155 +208,13 @@ class ChipAsciiClient(QObject):
             self.controlStatusReceived.emit(dict(self._last_tc))
 
 
-def crc16_modbus(data):
-    crc = 0xFFFF
-    for byte in data:
-        crc ^= byte
-        for _ in range(8):
-            if crc & 1:
-                crc = (crc >> 1) ^ 0xA001
-            else:
-                crc >>= 1
-    return crc & 0xFFFF
-
-
-class TemperatureProtocolClient(QObject):
-    connectedChanged = Signal(bool)
-    logLine = Signal(str)
-    chipTemperatureReceived = Signal(float, int)
-    stageTemperatureReceived = Signal(float, int)
-
-    CMD_SHOW_CHIP_TEMP = 0x1E
-    CMD_SHOW_STAGE_TEMP = 0x1F
-
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.port = QSerialPort(self)
-        self.port.readyRead.connect(self._on_ready_read)
-        self.port.errorOccurred.connect(self._on_error)
-        self._rx = bytearray()
-        self._poll_timer = QTimer(self)
-        self._poll_timer.timeout.connect(self.poll_once)
-        self._next_cmd = self.CMD_SHOW_CHIP_TEMP
-
-    def is_open(self):
-        return self.port.isOpen()
-
-    def open(self, port_name, baud):
-        if self.port.isOpen():
-            self.close()
-        self.port.setPortName(port_name)
-        self.port.setBaudRate(baud)
-        self.port.setDataBits(QSerialPort.Data8)
-        self.port.setParity(QSerialPort.NoParity)
-        self.port.setStopBits(QSerialPort.OneStop)
-        self.port.setFlowControl(QSerialPort.NoFlowControl)
-        if not self.port.open(QSerialPort.ReadWrite):
-            raise RuntimeError(self.port.errorString())
-        self.connectedChanged.emit(True)
-
-    def close(self):
-        self._poll_timer.stop()
-        if self.port.isOpen():
-            self.port.close()
-        self.connectedChanged.emit(False)
-
-    def start_polling(self, interval_ms):
-        self._poll_timer.start(interval_ms)
-        self.poll_once()
-
-    def stop_polling(self):
-        self._poll_timer.stop()
-
-    def poll_once(self):
-        if not self.port.isOpen():
-            return
-        self._send_read(self._next_cmd)
-        self._next_cmd = (
-            self.CMD_SHOW_STAGE_TEMP
-            if self._next_cmd == self.CMD_SHOW_CHIP_TEMP
-            else self.CMD_SHOW_CHIP_TEMP
-        )
-
-    def _send_read(self, main_cmd):
-        payload = b"\x00"
-        frame = bytearray([0x5A, 0xA5, 0x51, main_cmd, 0x00, 0xFF])
-        frame += struct.pack("<H", len(payload))
-        frame += payload
-        crc = crc16_modbus(frame[1:])
-        frame += struct.pack("<H", crc)
-        frame += b"\x0D\x0A"
-        self.port.write(bytes(frame))
-        self.logLine.emit("TEMP TX " + " ".join(f"{b:02X}" for b in frame))
-
-    @Slot()
-    def _on_ready_read(self):
-        self._rx.extend(bytes(self.port.readAll()))
-        self._parse_frames()
-
-    @Slot(QSerialPort.SerialPortError)
-    def _on_error(self, error):
-        if error == QSerialPort.NoError:
-            return
-        if self.port.isOpen():
-            self.logLine.emit(f"Temp serial error: {self.port.errorString()}")
-
-    def _parse_frames(self):
-        while True:
-            start = self._rx.find(0xAA)
-            if start < 0:
-                self._rx.clear()
-                return
-            if start > 0:
-                del self._rx[:start]
-            if len(self._rx) < 12:
-                return
-
-            length = self._rx[6] | (self._rx[7] << 8)
-            total = 12 + length
-            if len(self._rx) < total:
-                return
-            frame = bytes(self._rx[:total])
-            del self._rx[:total]
-
-            if frame[-2:] != b"\x0D\x0A":
-                self.logLine.emit("TEMP RX bad end frame")
-                continue
-
-            expected_crc = frame[-4] | (frame[-3] << 8)
-            actual_crc = crc16_modbus(frame[1:-4])
-            if expected_crc not in (0x0000, actual_crc):
-                self.logLine.emit(f"TEMP RX bad crc expected=0x{expected_crc:04X} actual=0x{actual_crc:04X}")
-                continue
-
-            addr, msg_type, main_cmd, sub_cmd, status = frame[1], frame[2], frame[3], frame[4], frame[5]
-            payload = frame[8:-4]
-            self.logLine.emit("TEMP RX " + " ".join(f"{b:02X}" for b in frame))
-
-            if addr != 0xA5 or msg_type != 0x61 or sub_cmd != 0x00:
-                continue
-            if status != 0x00:
-                self.logLine.emit(f"TEMP status error cmd=0x{main_cmd:02X} status=0x{status:02X}")
-                continue
-            if len(payload) < 2:
-                continue
-
-            raw = int.from_bytes(payload[:2], byteorder="little", signed=True)
-            temperature_c = float(raw)
-            if main_cmd == self.CMD_SHOW_CHIP_TEMP:
-                self.chipTemperatureReceived.emit(temperature_c, raw)
-            elif main_cmd == self.CMD_SHOW_STAGE_TEMP:
-                self.stageTemperatureReceived.emit(temperature_c, raw)
-
-
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("ChipController Host")
-        self.resize(1120, 760)
+        self.resize(1040, 720)
 
         self.chip = ChipAsciiClient(self)
-        self.temp = TemperatureProtocolClient(self)
         self._build_ui()
         self._connect_signals()
         self.refresh_ports()
@@ -375,7 +231,6 @@ class MainWindow(QMainWindow):
         top = QHBoxLayout()
         top.addWidget(self._build_chip_group(), 1)
         top.addWidget(self._build_control_group(), 1)
-        top.addWidget(self._build_temp_group(), 1)
         layout.addLayout(top)
 
         layout.addWidget(self._build_measure_group())
@@ -440,40 +295,6 @@ class MainWindow(QMainWindow):
         form.addRow("", self.poll_status)
         return group
 
-    def _build_temp_group(self):
-        group = QGroupBox("温度设备协议")
-        form = QFormLayout(group)
-
-        self.temp_port = QComboBox()
-        self.temp_baud = QComboBox()
-        self.temp_baud.addItems(["115200", "19200", "9600"])
-        self.temp_refresh = QPushButton("刷新")
-        self.temp_connect = QPushButton("连接")
-
-        row = QHBoxLayout()
-        row.addWidget(self.temp_port, 1)
-        row.addWidget(self.temp_refresh)
-        row.addWidget(self.temp_connect)
-        form.addRow("端口", row)
-        form.addRow("波特率", self.temp_baud)
-
-        self.temp_interval = QSpinBox()
-        self.temp_interval.setRange(200, 60000)
-        self.temp_interval.setValue(1000)
-        self.temp_interval.setSuffix(" ms")
-        self.temp_start = QPushButton("开始读温度")
-        self.temp_stop = QPushButton("停止")
-        poll_row = QHBoxLayout()
-        poll_row.addWidget(self.temp_interval)
-        poll_row.addWidget(self.temp_start)
-        poll_row.addWidget(self.temp_stop)
-        form.addRow("读取周期", poll_row)
-
-        hint = QLabel("命令: 0x1E 芯片温度, 0x1F 冷台温度")
-        hint.setWordWrap(True)
-        form.addRow("协议", hint)
-        return group
-
     def _build_measure_group(self):
         group = QGroupBox("实时数据")
         grid = QGridLayout(group)
@@ -516,15 +337,11 @@ class MainWindow(QMainWindow):
 
     def _connect_signals(self):
         self.chip_refresh.clicked.connect(self.refresh_ports)
-        self.temp_refresh.clicked.connect(self.refresh_ports)
         self.chip_connect.clicked.connect(self._toggle_chip)
-        self.temp_connect.clicked.connect(self._toggle_temp)
         self.set_current.clicked.connect(self._set_current)
         self.stop_current.clicked.connect(self._stop_current)
         self.start_stream.clicked.connect(self._start_stream)
         self.stop_stream.clicked.connect(self.chip.stop_stream)
-        self.temp_start.clicked.connect(self._start_temp_poll)
-        self.temp_stop.clicked.connect(self.temp.stop_polling)
 
         self.chip.connectedChanged.connect(self._chip_connected_changed)
         self.chip.logLine.connect(self._append_log)
@@ -532,25 +349,18 @@ class MainWindow(QMainWindow):
         self.chip.controlStatusReceived.connect(self._update_control_status)
         self.chip.boardTemperatureReceived.connect(self._update_board_temperature)
 
-        self.temp.connectedChanged.connect(self._temp_connected_changed)
-        self.temp.logLine.connect(self._append_log)
-        self.temp.chipTemperatureReceived.connect(self._update_chip_temp)
-        self.temp.stageTemperatureReceived.connect(self._update_stage_temp)
-
     def refresh_ports(self):
         current_chip = self.chip_port.currentData()
-        current_temp = self.temp_port.currentData()
         ports = list_serial_ports()
-        for combo, current in ((self.chip_port, current_chip), (self.temp_port, current_temp)):
-            combo.blockSignals(True)
-            combo.clear()
-            for system_location, label in ports:
-                combo.addItem(label, system_location)
-            if current:
-                idx = combo.findData(current)
-                if idx >= 0:
-                    combo.setCurrentIndex(idx)
-            combo.blockSignals(False)
+        self.chip_port.blockSignals(True)
+        self.chip_port.clear()
+        for system_location, label in ports:
+            self.chip_port.addItem(label, system_location)
+        if current_chip:
+            idx = self.chip_port.findData(current_chip)
+            if idx >= 0:
+                self.chip_port.setCurrentIndex(idx)
+        self.chip_port.blockSignals(False)
 
     def _toggle_chip(self):
         if self.chip.is_open():
@@ -565,26 +375,9 @@ class MainWindow(QMainWindow):
         except RuntimeError as exc:
             QMessageBox.critical(self, "串口打开失败", str(exc))
 
-    def _toggle_temp(self):
-        if self.temp.is_open():
-            self.temp.close()
-            return
-        port = self.temp_port.currentData()
-        if not port:
-            QMessageBox.warning(self, "串口", "没有可用的温度设备串口")
-            return
-        try:
-            self.temp.open(port, int(self.temp_baud.currentText()))
-        except RuntimeError as exc:
-            QMessageBox.critical(self, "串口打开失败", str(exc))
-
     def _chip_connected_changed(self, connected):
         self.chip_connect.setText("断开" if connected else "连接")
         self._append_log("ChipController connected" if connected else "ChipController disconnected")
-
-    def _temp_connected_changed(self, connected):
-        self.temp_connect.setText("断开" if connected else "连接")
-        self._append_log("Temperature device connected" if connected else "Temperature device disconnected")
 
     def _set_current(self):
         self.chip.set_current_ma(self.current_ma.value())
@@ -595,9 +388,6 @@ class MainWindow(QMainWindow):
 
     def _start_stream(self):
         self.chip.start_stream(self.stream_period.value())
-
-    def _start_temp_poll(self):
-        self.temp.start_polling(self.temp_interval.value())
 
     def _poll_chip_status(self):
         if self.poll_status.isChecked() and self.chip.is_open():
@@ -665,20 +455,6 @@ class MainWindow(QMainWindow):
                 self.stage_temp.setText(str(stage_temp))
         elif stage_status is not None:
             self.stage_temp.setText(stage_status)
-
-    @Slot(float, int)
-    def _update_chip_temp(self, temperature_c, raw):
-        if math.isfinite(temperature_c):
-            self.chip_temp.setText(f"{temperature_c:.2f} C  (raw={raw})")
-        else:
-            self.chip_temp.setText("NaN")
-
-    @Slot(float, int)
-    def _update_stage_temp(self, temperature_c, raw):
-        if math.isfinite(temperature_c):
-            self.stage_temp.setText(f"{temperature_c:.2f} C  (raw={raw})")
-        else:
-            self.stage_temp.setText("NaN")
 
 
 def main():
