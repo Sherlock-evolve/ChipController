@@ -362,18 +362,16 @@ static void App_PrintTemperature(void)
     if (stage_status == BOARD_TEMPERATURE_OK)
     {
       BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                       "Temperature: chip_mC=%ld stage_mC=%ld humidity_mpermil=%ld\r\n",
+                       "Temperature: chip_mC=%ld stage_mC=%ld\r\n",
                        (long)App_FloatToMilli(sample.temperature_c),
-                       (long)App_FloatToMilli(stage_sample.temperature_c),
-                       (long)App_FloatToMilli(sample.humidity_percent));
+                       (long)App_FloatToMilli(stage_sample.temperature_c));
     }
     else
     {
       BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                       "Temperature: chip_mC=%ld stage_status=%s humidity_mpermil=%ld\r\n",
+                       "Temperature: chip_mC=%ld stage_status=%s\r\n",
                        (long)App_FloatToMilli(sample.temperature_c),
-                       BoardTemperature_StatusText(stage_status),
-                       (long)App_FloatToMilli(sample.humidity_percent));
+                       BoardTemperature_StatusText(stage_status));
     }
   }
   else

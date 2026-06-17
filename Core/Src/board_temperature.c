@@ -2,16 +2,13 @@
 /**
   ******************************************************************************
   * @file    board_temperature.c
-  * @brief   Optional board temperature sensor wrapper.
+  * @brief   External RS485 temperature device wrapper.
   ******************************************************************************
   */
 /* USER CODE END Header */
 
 #include "board_temperature.h"
 #include "board_uart.h"
-
-#define BOARD_TEMPERATURE_I2C_TIMEOUT_MS 100u
-#define BOARD_TEMPERATURE_EXTERNAL_ENABLED 1u
 
 #define BOARD_TEMPERATURE_EXT_TIMEOUT_MS 200u
 #define BOARD_TEMPERATURE_EXT_ADDR 0xA5u
@@ -24,18 +21,6 @@
 #define BOARD_TEMPERATURE_EXT_MAX_FRAME 32u
 #define BOARD_TEMPERATURE_EXT_TEMP_SCALE_C_PER_COUNT 1.0f
 
-extern I2C_HandleTypeDef hi2c1;
-
-static SHT3X_Handle s_sensor = {
-  .hi2c = &hi2c1,
-  .address_7bit = SHT3X_I2C_ADDRESS_PRIMARY_7BIT,
-  .timeout_ms = BOARD_TEMPERATURE_I2C_TIMEOUT_MS
-};
-
-static uint8_t s_present;
-static uint8_t s_external_enabled = BOARD_TEMPERATURE_EXTERNAL_ENABLED;
-
-static BoardTemperature_Status board_temperature_from_sht3x(SHT3X_Status status);
 static BoardTemperature_Status board_temperature_read_external(uint8_t command,
                                                                BoardTemperature_Sample *sample);
 static void board_temperature_flush_external_rx(void);
@@ -43,53 +28,20 @@ static uint16_t board_temperature_crc16_modbus(const uint8_t *data, uint16_t len
 
 BoardTemperature_Status BoardTemperature_Init(void)
 {
-  SHT3X_Status status;
-
-  status = SHT3X_Init(&s_sensor);
-  s_present = (status == SHT3X_OK) ? 1u : 0u;
-  if ((s_present == 0u) && (s_external_enabled == 0u))
-  {
-    return BOARD_TEMPERATURE_NOT_PRESENT;
-  }
-
   return BOARD_TEMPERATURE_OK;
 }
 
 BoardTemperature_Status BoardTemperature_Read(BoardTemperature_Sample *sample)
 {
-  SHT3X_Sample sensor_sample;
-  SHT3X_Status status;
-
   if (sample == NULL)
   {
     return BOARD_TEMPERATURE_INVALID_PARAM;
   }
 
   sample->temperature_c = 0.0f;
-  sample->humidity_percent = 0.0f;
-  sample->present = s_present;
+  sample->present = 0u;
 
-  if (s_present == 0u)
-  {
-    if (s_external_enabled != 0u)
-    {
-      return board_temperature_read_external(BOARD_TEMPERATURE_EXT_CMD_CHIP, sample);
-    }
-
-    return BOARD_TEMPERATURE_NOT_PRESENT;
-  }
-
-  status = SHT3X_Read(&s_sensor, &sensor_sample);
-  if (status != SHT3X_OK)
-  {
-    return board_temperature_from_sht3x(status);
-  }
-
-  sample->temperature_c = sensor_sample.temperature_c;
-  sample->humidity_percent = sensor_sample.humidity_percent;
-  sample->present = 1u;
-
-  return BOARD_TEMPERATURE_OK;
+  return board_temperature_read_external(BOARD_TEMPERATURE_EXT_CMD_CHIP, sample);
 }
 
 BoardTemperature_Status BoardTemperature_ReadStage(BoardTemperature_Sample *sample)
@@ -100,20 +52,14 @@ BoardTemperature_Status BoardTemperature_ReadStage(BoardTemperature_Sample *samp
   }
 
   sample->temperature_c = 0.0f;
-  sample->humidity_percent = 0.0f;
   sample->present = 0u;
-
-  if (s_external_enabled == 0u)
-  {
-    return BOARD_TEMPERATURE_NOT_PRESENT;
-  }
 
   return board_temperature_read_external(BOARD_TEMPERATURE_EXT_CMD_STAGE, sample);
 }
 
 uint8_t BoardTemperature_IsPresent(void)
 {
-  return (s_present != 0u) || (s_external_enabled != 0u);
+  return 1u;
 }
 
 const char *BoardTemperature_StatusText(BoardTemperature_Status status)
@@ -134,24 +80,6 @@ const char *BoardTemperature_StatusText(BoardTemperature_Status status)
       return "NOT_PRESENT";
     default:
       return "UNKNOWN";
-  }
-}
-
-static BoardTemperature_Status board_temperature_from_sht3x(SHT3X_Status status)
-{
-  switch (status)
-  {
-    case SHT3X_OK:
-      return BOARD_TEMPERATURE_OK;
-    case SHT3X_TIMEOUT:
-      return BOARD_TEMPERATURE_TIMEOUT;
-    case SHT3X_CRC_ERROR:
-      return BOARD_TEMPERATURE_CRC_ERROR;
-    case SHT3X_INVALID_PARAM:
-      return BOARD_TEMPERATURE_INVALID_PARAM;
-    case SHT3X_ERROR:
-    default:
-      return BOARD_TEMPERATURE_ERROR;
   }
 }
 
@@ -270,7 +198,6 @@ static BoardTemperature_Status board_temperature_read_external(uint8_t command,
     int16_t raw_temperature = (int16_t)((uint16_t)response[8] | ((uint16_t)response[9] << 8));
 
     sample->temperature_c = (float)raw_temperature * BOARD_TEMPERATURE_EXT_TEMP_SCALE_C_PER_COUNT;
-    sample->humidity_percent = 0.0f;
     sample->present = 1u;
   }
 

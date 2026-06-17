@@ -2,7 +2,7 @@
 /**
   ******************************************************************************
   * @file    board_temperature.h
-  * @brief   Optional board temperature sensor wrapper.
+  * @brief   External RS485 temperature device wrapper.
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -14,7 +14,6 @@
 extern "C" {
 #endif
 
-#include "sht3x.h"
 #include <stdint.h>
 
 typedef enum
@@ -30,7 +29,6 @@ typedef enum
 typedef struct
 {
   float temperature_c;
-  float humidity_percent;
   uint8_t present;
 } BoardTemperature_Sample;
 

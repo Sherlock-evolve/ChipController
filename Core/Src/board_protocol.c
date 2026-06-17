@@ -189,9 +189,8 @@ static void board_protocol_print_temp(void)
   if (status == BOARD_TEMPERATURE_OK)
   {
     BoardUart_Printf(BOARD_UART_PORT_RS485,
-                     "OK TEMP temp_mC=%ld rh_mpermil=%ld\r\n",
-                     (long)board_protocol_float_to_milli(sample.temperature_c),
-                     (long)board_protocol_float_to_milli(sample.humidity_percent));
+                     "OK TEMP temp_mC=%ld\r\n",
+                     (long)board_protocol_float_to_milli(sample.temperature_c));
   }
   else
   {
