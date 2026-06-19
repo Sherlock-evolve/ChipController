@@ -153,6 +153,7 @@ static void App_ProcessDebugLine(const char *line)
                      BoardOutput_StatusText(status),
                      (int)status,
                      ThermalControl_StatusText(control_status));
+    App_ResetAdcFilter();
   }
   else if (strcmp(line, "r42test") == 0)
   {
@@ -178,6 +179,7 @@ static void App_ProcessDebugLine(const char *line)
                      (long)App_FloatToMilli(result.load_voltage_raw_v),
                      (long)App_FloatToMilli(result.load_voltage_v),
                      (long)App_FloatToMilli(result.resistance_ohm));
+    App_ResetAdcFilter();
   }
   else if (strcmp(line, "temp") == 0)
   {
