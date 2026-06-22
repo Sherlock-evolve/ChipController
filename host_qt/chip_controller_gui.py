@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
+from collections import deque
 import re
 import sys
+import time
 from dataclasses import dataclass
 from typing import Optional
 
-from PySide6.QtCore import QObject, QTimer, Qt, Signal, Slot
+from PySide6.QtCore import QPointF, QRectF, QObject, QTimer, Qt, Signal, Slot
+from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtSerialPort import QSerialPort, QSerialPortInfo
 from PySide6.QtWidgets import (
     QApplication,
@@ -21,6 +24,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QPlainTextEdit,
     QSpinBox,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -29,6 +33,7 @@ from PySide6.QtWidgets import (
 CSV_HEADER = "index,tick_ms,status,current_nA,voltage_uV,resistance_mOhm,current_adc_status,voltage_adc_status"
 CHIP_COMMAND_CHAR_DELAY_MS = 5
 ADC_FILTER_SAMPLE_COUNT = 1
+TREND_MAX_POINTS = 900
 
 
 @dataclass
@@ -51,6 +56,234 @@ class AdcFilteredSample:
     resistance_uohm: int
     current_adc_status: int
     voltage_adc_status: int
+
+
+@dataclass(frozen=True)
+class TrendSeries:
+    key: str
+    label: str
+    band: str
+    color: str
+    decimals: int
+    default_visible: bool = True
+    dashed: bool = False
+
+
+TREND_BANDS = [
+    ("current", "电流", "mA", True),
+    ("voltage", "电压", "mV", True),
+    ("resistance", "电阻", "ohm", True),
+    ("temperature", "温度", "C", False),
+    ("drive", "驱动", "mV", True),
+]
+
+TREND_SERIES = [
+    TrendSeries("current_ma", "实测电流", "current", "#0072B2", 4),
+    TrendSeries("target_current_ma", "目标电流", "current", "#D55E00", 4, True, True),
+    TrendSeries("voltage_mv", "电压", "voltage", "#009E73", 3),
+    TrendSeries("resistance_ohm", "电阻", "resistance", "#CC79A7", 3),
+    TrendSeries("chip_temp_c", "芯片温度", "temperature", "#E69F00", 2),
+    TrendSeries("stage_temp_c", "冷台温度", "temperature", "#56B4E9", 2),
+    TrendSeries("drive_mv", "驱动电压", "drive", "#000000", 1),
+]
+
+
+class TrendPlotWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._samples = deque(maxlen=TREND_MAX_POINTS)
+        self._start_time = time.monotonic()
+        self._visible = {series.key: series.default_visible for series in TREND_SERIES}
+        self.setMinimumHeight(260)
+
+    def add_sample(self, values):
+        clean = {}
+        for series in TREND_SERIES:
+            value = values.get(series.key)
+            if value is None:
+                continue
+            try:
+                clean[series.key] = float(value)
+            except (TypeError, ValueError):
+                continue
+        if not clean:
+            return
+        self._samples.append((time.monotonic() - self._start_time, clean))
+        self.update()
+
+    def clear(self):
+        self._samples.clear()
+        self._start_time = time.monotonic()
+        self.update()
+
+    def set_series_visible(self, key, visible):
+        self._visible[key] = bool(visible)
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.fillRect(self.rect(), QColor("#ffffff"))
+
+        if not self._samples:
+            painter.setPen(QColor("#667085"))
+            painter.drawText(self.rect(), Qt.AlignCenter, "等待采样数据")
+            return
+
+        visible_series = [series for series in TREND_SERIES if self._visible.get(series.key, True)]
+        bands = []
+        for band_key, band_label, unit, zero_based in TREND_BANDS:
+            band_series = [series for series in visible_series if series.band == band_key]
+            if band_series:
+                bands.append((band_key, band_label, unit, zero_based, band_series))
+
+        if not bands:
+            painter.setPen(QColor("#667085"))
+            painter.drawText(self.rect(), Qt.AlignCenter, "未选择曲线")
+            return
+
+        margin_left = 88.0
+        margin_right = 16.0
+        margin_top = 12.0
+        margin_bottom = 28.0
+        band_gap = 8.0
+        plot_rect = QRectF(
+            margin_left,
+            margin_top,
+            max(40.0, self.width() - margin_left - margin_right),
+            max(40.0, self.height() - margin_top - margin_bottom),
+        )
+        band_height = max(28.0, (plot_rect.height() - band_gap * (len(bands) - 1)) / len(bands))
+
+        x_min = self._samples[0][0]
+        x_max = self._samples[-1][0]
+        if x_max <= x_min:
+            x_max = x_min + 1.0
+
+        for index, (_, band_label, unit, zero_based, band_series) in enumerate(bands):
+            top = plot_rect.top() + index * (band_height + band_gap)
+            area = QRectF(plot_rect.left(), top, plot_rect.width(), band_height)
+            self._draw_band(painter, area, band_label, unit, zero_based, band_series, x_min, x_max)
+
+        painter.setPen(QColor("#667085"))
+        painter.drawText(
+            QRectF(plot_rect.left(), self.height() - 22, 120, 18),
+            Qt.AlignLeft | Qt.AlignVCenter,
+            self._format_elapsed(x_min),
+        )
+        painter.drawText(
+            QRectF(plot_rect.right() - 120, self.height() - 22, 120, 18),
+            Qt.AlignRight | Qt.AlignVCenter,
+            self._format_elapsed(x_max),
+        )
+
+    def _draw_band(self, painter, area, band_label, unit, zero_based, band_series, x_min, x_max):
+        values = []
+        for series in band_series:
+            values.extend(value for _, value in self._series_points(series.key))
+
+        painter.setPen(QPen(QColor("#D0D7E2"), 1))
+        painter.setBrush(QColor("#FBFCFE"))
+        painter.drawRect(area)
+
+        if not values:
+            painter.setPen(QColor("#667085"))
+            painter.drawText(QRectF(6, area.top(), 76, area.height()), Qt.AlignLeft | Qt.AlignVCenter, band_label)
+            return
+
+        y_min = min(values)
+        y_max = max(values)
+        if zero_based:
+            y_min = min(0.0, y_min)
+            y_max = max(0.0, y_max)
+        if y_max <= y_min:
+            pad = max(abs(y_max) * 0.1, 1.0)
+            y_min -= pad
+            y_max += pad
+        else:
+            pad = (y_max - y_min) * 0.08
+            if zero_based:
+                y_max += pad
+                y_min = min(0.0, y_min)
+            else:
+                y_min -= pad
+                y_max += pad
+
+        painter.setPen(QPen(QColor("#E5EAF1"), 1))
+        for frac in (0.25, 0.5, 0.75):
+            y = area.top() + area.height() * frac
+            painter.drawLine(QPointF(area.left(), y), QPointF(area.right(), y))
+
+        painter.setPen(QColor("#344054"))
+        painter.drawText(QRectF(6, area.top() + 3, 78, 16), Qt.AlignLeft | Qt.AlignVCenter, f"{band_label} ({unit})")
+        painter.setPen(QColor("#667085"))
+        painter.drawText(
+            QRectF(6, area.top() + 20, 78, 16),
+            Qt.AlignLeft | Qt.AlignVCenter,
+            self._format_value(y_max, 3),
+        )
+        painter.drawText(
+            QRectF(6, area.bottom() - 18, 78, 16),
+            Qt.AlignLeft | Qt.AlignVCenter,
+            self._format_value(y_min, 3),
+        )
+
+        latest_parts = []
+        for series in band_series:
+            latest = self._latest_value(series.key)
+            if latest is not None:
+                latest_parts.append(f"{series.label} {latest:.{series.decimals}f}")
+        if latest_parts:
+            painter.drawText(
+                QRectF(area.left() + 6, area.top() + 3, area.width() - 12, 16),
+                Qt.AlignRight | Qt.AlignVCenter,
+                "  ".join(latest_parts),
+            )
+
+        for series in band_series:
+            points = []
+            for timestamp, value in self._series_points(series.key):
+                x = area.left() + (timestamp - x_min) / (x_max - x_min) * area.width()
+                y = area.bottom() - (value - y_min) / (y_max - y_min) * area.height()
+                points.append(QPointF(x, y))
+
+            if not points:
+                continue
+
+            pen = QPen(QColor(series.color), 2)
+            if series.dashed:
+                pen.setStyle(Qt.DashLine)
+            painter.setPen(pen)
+            if len(points) == 1:
+                painter.drawEllipse(points[0], 3.0, 3.0)
+            else:
+                for point_index in range(1, len(points)):
+                    painter.drawLine(points[point_index - 1], points[point_index])
+
+    def _series_points(self, key):
+        points = []
+        for timestamp, values in self._samples:
+            value = values.get(key)
+            if value is not None:
+                points.append((timestamp, value))
+        return points
+
+    def _latest_value(self, key):
+        for _, values in reversed(self._samples):
+            value = values.get(key)
+            if value is not None:
+                return value
+        return None
+
+    @staticmethod
+    def _format_value(value, decimals):
+        return f"{value:.{decimals}f}"
+
+    @staticmethod
+    def _format_elapsed(seconds):
+        seconds = max(0, int(seconds))
+        minutes, sec = divmod(seconds, 60)
+        return f"{minutes:02d}:{sec:02d}"
 
 
 def list_serial_ports():
@@ -232,11 +465,31 @@ class ChipAsciiClient(QObject):
             return
 
         if line.startswith("TC target: "):
-            self._last_tc.update(parse_key_values(line))
+            values = parse_key_values(line)
+            self._last_tc.update(values)
+            for old_key, new_key in (
+                ("temp", "target_temp_mC"),
+                ("error", "temperature_error_mC"),
+                ("current", "target_current_uA"),
+                ("integral", "temperature_integral_uA"),
+                ("drive", "target_drive_mV"),
+            ):
+                if old_key in values:
+                    self._last_tc[new_key] = values[old_key]
             return
 
         if line.startswith("TC measured: "):
-            self._last_tc.update(parse_key_values(line))
+            values = parse_key_values(line)
+            self._last_tc.update(values)
+            for old_key, new_key in (
+                ("temp", "measured_temp_mC"),
+                ("current", "measured_current_uA"),
+                ("voltage", "measured_voltage_mV"),
+                ("power", "measured_power_uW"),
+                ("R", "measured_resistance_mOhm"),
+            ):
+                if old_key in values:
+                    self._last_tc[new_key] = values[old_key]
             self.controlStatusReceived.emit(dict(self._last_tc))
 
     def _handle_filtered_adc_line(self, line):
@@ -292,6 +545,7 @@ class MainWindow(QMainWindow):
         self.resize(1040, 720)
 
         self.chip = ChipAsciiClient(self)
+        self.telemetry_values = {}
         self._build_ui()
         self._connect_signals()
         self.refresh_ports()
@@ -318,10 +572,36 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(self._build_measure_group())
 
+        layout.addWidget(self._build_trend_tabs(), 1)
+
+    def _build_trend_tabs(self):
+        tabs = QTabWidget()
+
+        trend_page = QWidget()
+        trend_layout = QVBoxLayout(trend_page)
+        controls = QHBoxLayout()
+        self.trend_checks = {}
+        for series in TREND_SERIES:
+            checkbox = QCheckBox(series.label)
+            checkbox.setChecked(series.default_visible)
+            checkbox.toggled.connect(lambda checked, key=series.key: self.trend_plot.set_series_visible(key, checked))
+            self.trend_checks[series.key] = checkbox
+            controls.addWidget(checkbox)
+        controls.addStretch(1)
+        self.clear_trend = QPushButton("清空曲线")
+        controls.addWidget(self.clear_trend)
+        trend_layout.addLayout(controls)
+
+        self.trend_plot = TrendPlotWidget()
+        trend_layout.addWidget(self.trend_plot, 1)
+
         self.log = QPlainTextEdit()
         self.log.setReadOnly(True)
         self.log.setMaximumBlockCount(1000)
-        layout.addWidget(self.log, 1)
+
+        tabs.addTab(trend_page, "趋势图")
+        tabs.addTab(self.log, "诊断")
+        return tabs
 
     def _build_chip_group(self):
         group = QGroupBox("ChipController 串口")
@@ -421,6 +701,7 @@ class MainWindow(QMainWindow):
         self.stop_current.clicked.connect(self._stop_current)
         self.start_stream.clicked.connect(self._start_stream)
         self.stop_stream.clicked.connect(self._stop_stream)
+        self.clear_trend.clicked.connect(self._clear_trend)
 
         self.chip.connectedChanged.connect(self._chip_connected_changed)
         self.chip.logLine.connect(self._append_log)
@@ -460,11 +741,16 @@ class MainWindow(QMainWindow):
         self._append_log("ChipController connected" if connected else "ChipController disconnected")
 
     def _set_current(self):
-        self.chip.set_current_ma(self.current_ma.value())
+        target_ma = self.current_ma.value()
+        self.chip.set_current_ma(target_ma)
+        if self.chip.is_open():
+            self._record_telemetry(target_current_ma=target_ma)
 
     def _stop_current(self):
         self.chip.stop_control()
         self.chip.send_command("zero")
+        if self.chip.is_open():
+            self._record_telemetry(target_current_ma=0.0, drive_mv=0.0)
 
     def _start_stream(self):
         self.chip.stop_stream()
@@ -494,12 +780,43 @@ class MainWindow(QMainWindow):
     def _append_log(self, line):
         self.log.appendPlainText(line)
 
+    def _clear_trend(self):
+        self.telemetry_values.clear()
+        self.trend_plot.clear()
+
+    def _record_telemetry(self, **updates):
+        changed = False
+        for key, value in updates.items():
+            if value is None:
+                continue
+            try:
+                self.telemetry_values[key] = float(value)
+            except (TypeError, ValueError):
+                continue
+            changed = True
+        if changed:
+            self.trend_plot.add_sample(self.telemetry_values)
+
+    @staticmethod
+    def _int_value(value):
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
     @Slot(object)
     def _update_sample(self, sample):
         self.current_label.setText(f"{sample.current_na / 1_000_000.0:.6f} mA  ({sample.current_na} nA)")
         self.voltage_label.setText(f"{sample.voltage_uv / 1000.0:.3f} mV  ({sample.voltage_uv} uV)")
         self.resistance_label.setText(f"{sample.resistance_mohm / 1000.0:.6f} ohm")
         self.adc_status_label.setText(f"current=0x{sample.current_adc_status:02X}, voltage=0x{sample.voltage_adc_status:02X}")
+        self._record_telemetry(
+            current_ma=sample.current_na / 1_000_000.0,
+            voltage_mv=sample.voltage_uv / 1000.0,
+            resistance_ohm=sample.resistance_mohm / 1000.0,
+        )
 
     @Slot(object)
     def _update_filtered_sample(self, sample):
@@ -514,6 +831,11 @@ class MainWindow(QMainWindow):
         self.adc_status_label.setText(
             f"current=0x{sample.current_adc_status:02X}, voltage=0x{sample.voltage_adc_status:02X}"
         )
+        self._record_telemetry(
+            current_ma=sample.current_na / 1_000_000.0,
+            voltage_mv=sample.voltage_uv / 1000.0,
+            resistance_ohm=sample.resistance_uohm / 1_000_000.0,
+        )
 
     @Slot(dict)
     def _update_control_status(self, values):
@@ -524,31 +846,49 @@ class MainWindow(QMainWindow):
         if mode is not None:
             self.control_mode.setText(f"{mode}, enabled={enabled}, fault={fault}, status={status}")
 
-        drive = values.get("drive") or values.get("drive_mV")
+        drive = values.get("target_drive_mV") or values.get("drive") or values.get("drive_mV")
         if drive is not None:
             self.control_drive.setText(f"{drive} mV")
+
+        target_current_ua = self._int_value(values.get("target_current_uA"))
+        measured_current_ua = self._int_value(values.get("measured_current_uA"))
+        measured_voltage_mv = self._int_value(values.get("measured_voltage_mV"))
+        measured_resistance_mohm = self._int_value(values.get("measured_resistance_mOhm"))
+        drive_mv = self._int_value(drive)
+
+        self._record_telemetry(
+            target_current_ma=None if target_current_ua is None else target_current_ua / 1000.0,
+            current_ma=None if measured_current_ua is None else measured_current_ua / 1000.0,
+            voltage_mv=measured_voltage_mv,
+            resistance_ohm=None if measured_resistance_mohm is None else measured_resistance_mohm / 1000.0,
+            drive_mv=drive_mv,
+        )
 
     @Slot(dict)
     def _update_board_temperature(self, values):
         chip_temp = values.get("chip_mC")
         stage_temp = values.get("stage_mC")
         stage_status = values.get("stage_status")
+        chip_temp_c = None
+        stage_temp_c = None
 
         if chip_temp is not None:
             try:
-                temp_c = int(chip_temp) / 1000.0
-                self.chip_temp.setText(f"{temp_c:.3f} C")
+                chip_temp_c = int(chip_temp) / 1000.0
+                self.chip_temp.setText(f"{chip_temp_c:.3f} C")
             except ValueError:
                 self.chip_temp.setText(str(chip_temp))
 
         if stage_temp is not None:
             try:
-                temp_c = int(stage_temp) / 1000.0
-                self.stage_temp.setText(f"{temp_c:.3f} C")
+                stage_temp_c = int(stage_temp) / 1000.0
+                self.stage_temp.setText(f"{stage_temp_c:.3f} C")
             except ValueError:
                 self.stage_temp.setText(str(stage_temp))
         elif stage_status is not None:
             self.stage_temp.setText(stage_status)
+
+        self._record_telemetry(chip_temp_c=chip_temp_c, stage_temp_c=stage_temp_c)
 
 
 def main():
