@@ -377,6 +377,9 @@ class ChipAsciiClient(QObject):
         self._adch_pending = False
         self._adch_last_rate_hz = None
         self._adch_burst_base_t = None
+        self._adch_expected_count = 0
+        self._adch_seen_count = 0
+        self._adch_summary = None
 
     def is_open(self):
         return self.port.isOpen()
@@ -399,6 +402,9 @@ class ChipAsciiClient(QObject):
         self._tx_queue.clear()
         self._adcf_pending = False
         self._adch_pending = False
+        self._adch_expected_count = 0
+        self._adch_seen_count = 0
+        self._adch_summary = None
         if self.port.isOpen():
             self.port.close()
         self.connectedChanged.emit(False)
@@ -426,6 +432,9 @@ class ChipAsciiClient(QObject):
         self._adcf_last_sample = None
         self._adch_pending = False
         self._adch_burst_base_t = None
+        self._adch_expected_count = 0
+        self._adch_seen_count = 0
+        self._adch_summary = None
 
     def request_filtered_adc(self, count):
         if self._adcf_pending:
@@ -445,6 +454,9 @@ class ChipAsciiClient(QObject):
         if self._adch_pending:
             return False
         self._adch_pending = True
+        self._adch_expected_count = int(count)
+        self._adch_seen_count = 0
+        self._adch_summary = None
         self._adch_burst_base_t = None
         self.send_command(f"adch {int(count)}")
         return True
@@ -452,6 +464,9 @@ class ChipAsciiClient(QObject):
     def clear_high_rate_adc_pending(self):
         self._adch_pending = False
         self._adch_burst_base_t = None
+        self._adch_expected_count = 0
+        self._adch_seen_count = 0
+        self._adch_summary = None
 
     def request_status(self):
         self.send_command("tc status")
@@ -606,6 +621,13 @@ class ChipAsciiClient(QObject):
     def _handle_high_rate_line(self, line):
         if line.startswith("AD7190 high-rate capture:"):
             # Start of a new burst; reset the intra-burst time reference.
+            values = parse_key_values(line)
+            try:
+                self._adch_expected_count = int(values.get("count", self._adch_expected_count))
+            except ValueError:
+                pass
+            self._adch_seen_count = 0
+            self._adch_summary = None
             self._adch_burst_base_t = None
             return True
 
@@ -616,11 +638,13 @@ class ChipAsciiClient(QObject):
         )
         if m:
             try:
-                if self._adch_burst_base_t is None:
-                    self._adch_burst_base_t = time.monotonic()
+                now = time.monotonic()
                 t_us = int(m.group(2))
+                if self._adch_burst_base_t is None:
+                    self._adch_burst_base_t = now - t_us / 1_000_000.0
+                index = int(m.group(1))
                 sample = HighRateSample(
-                    index=int(m.group(1)),
+                    index=index,
                     t_us=t_us,
                     dt_us=int(m.group(3)),
                     current_na=int(m.group(4)),
@@ -630,6 +654,8 @@ class ChipAsciiClient(QObject):
                     t_monotonic=self._adch_burst_base_t + t_us / 1_000_000.0,
                 )
                 self.highRateSampleReceived.emit(sample)
+                self._adch_seen_count = max(self._adch_seen_count, index)
+                self._finish_high_rate_burst_if_complete()
             except (TypeError, ValueError):
                 pass
             return True
@@ -640,18 +666,31 @@ class ChipAsciiClient(QObject):
                 rate_hz = int(values.get("rate_hz", 0))
             except ValueError:
                 rate_hz = 0
-            self._adch_last_rate_hz = rate_hz
-            self._adch_pending = False
-            self._adch_burst_base_t = None
-            self.highRateInfoReceived.emit({
+            self._adch_summary = {
                 "rate_hz": rate_hz,
                 "count": values.get("count"),
                 "capture_us": values.get("capture_us"),
                 "avg_period_us": values.get("avg_period_us"),
-            })
+            }
+            self._finish_high_rate_burst_if_complete()
             return True
 
         return False
+
+    def _finish_high_rate_burst_if_complete(self):
+        if not self._adch_pending or self._adch_summary is None:
+            return
+        if self._adch_expected_count > 0 and self._adch_seen_count < self._adch_expected_count:
+            return
+
+        summary = self._adch_summary
+        self._adch_last_rate_hz = summary.get("rate_hz")
+        self._adch_pending = False
+        self._adch_burst_base_t = None
+        self._adch_expected_count = 0
+        self._adch_seen_count = 0
+        self._adch_summary = None
+        self.highRateInfoReceived.emit(summary)
 
 
 class MainWindow(QMainWindow):
