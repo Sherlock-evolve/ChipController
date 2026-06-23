@@ -33,6 +33,15 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef struct
+{
+  int32_t current_na;
+  int32_t voltage_uv;
+  uint32_t t_us;
+  uint32_t dt_us;
+  uint8_t current_adc_status;
+  uint8_t voltage_adc_status;
+} App_HighRateAdcSample;
 
 /* USER CODE END PTD */
 
@@ -41,8 +50,11 @@
 #define APP_DEBUG_LINE_SIZE 64u
 #define APP_ADC_SAMPLE_DEFAULT_COUNT 10u
 #define APP_ADC_SAMPLE_MAX_COUNT 100u
+#define APP_ADC_HIGH_RATE_MAX_COUNT 100u
 
 #define APP_ADC_FILTER_ALPHA 0.25f
+#define APP_TIMEBASE_HZ 1000000u
+#define APP_TIMEBASE_PERIOD 0xFFFFu
 
 /* USER CODE END PD */
 
@@ -69,6 +81,9 @@ UART_HandleTypeDef huart2;
 static uint8_t s_adc_filter_valid = 0u;
 static float s_adc_filter_current_a = 0.0f;
 static float s_adc_filter_voltage_v = 0.0f;
+static App_HighRateAdcSample s_high_rate_samples[APP_ADC_HIGH_RATE_MAX_COUNT];
+static volatile uint32_t s_high_res_timebase_overflows = 0u;
+static uint8_t s_high_res_timebase_ready = 0u;
 
 /* USER CODE END PV */
 
@@ -89,6 +104,12 @@ static void App_PrintTemperature(void);
 static void App_PrintThermalControl(void);
 static void App_PrintAdcSamples(uint32_t count);
 static void App_PrintAdcFilteredSamples(uint32_t count);
+static void App_PrintHighRateAdcSamples(uint32_t count);
+static void App_PrintSampleMode(void);
+static uint8_t App_SetSampleMode(ChipMeasure_SampleMode mode);
+static uint8_t App_EnsurePrecisionSampleMode(void);
+static void App_InitHighResTimebase(void);
+static uint32_t App_Micros(void);
 
 static uint8_t App_ParseFloat(const char *text, float *value);
 static uint8_t App_ParseUint32(const char *text, uint32_t *value);
@@ -159,6 +180,11 @@ static void App_ProcessDebugLine(const char *line)
   {
     BoardOutput_R42SelfTestResult result;
     BoardOutput_Status status;
+
+    if (App_EnsurePrecisionSampleMode() == 0u)
+    {
+      return;
+    }
 
     (void)ThermalControl_Stop();
     BoardUart_WriteString(BOARD_UART_PORT_DEBUG, "R42 self-test running...\r\n", 100u);
@@ -232,7 +258,39 @@ static void App_ProcessDebugLine(const char *line)
 
     App_PrintAdcFilteredSamples(count);
   }
+  else if (strcmp(line, "adch") == 0)
+  {
+    App_PrintHighRateAdcSamples(APP_ADC_SAMPLE_DEFAULT_COUNT);
+  }
+  else if (strncmp(line, "adch ", 5u) == 0)
+  {
+    uint32_t count = 0u;
 
+    if ((App_ParseUint32(&line[5], &count) == 0u) ||
+        (count == 0u) ||
+        (count > APP_ADC_HIGH_RATE_MAX_COUNT))
+    {
+      BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                       "Bad argument. Usage: adch <1-%lu>\r\n",
+                       (unsigned long)APP_ADC_HIGH_RATE_MAX_COUNT);
+      return;
+    }
+
+    App_PrintHighRateAdcSamples(count);
+  }
+  else if (strcmp(line, "sample status") == 0)
+  {
+    App_PrintSampleMode();
+  }
+  else if (strcmp(line, "sample mode precision") == 0)
+  {
+    (void)App_SetSampleMode(CHIP_MEASURE_SAMPLE_MODE_PRECISION);
+  }
+  else if ((strcmp(line, "sample mode highrate") == 0) ||
+           (strcmp(line, "sample mode high-rate") == 0))
+  {
+    (void)App_SetSampleMode(CHIP_MEASURE_SAMPLE_MODE_HIGH_RATE);
+  }
   else if (strcmp(line, "tc status") == 0)
   {
     App_PrintThermalControl();
@@ -258,6 +316,11 @@ static void App_ProcessDebugLine(const char *line)
       return;
     }
 
+    if (App_EnsurePrecisionSampleMode() == 0u)
+    {
+      return;
+    }
+
     ThermalControl_Status status = ThermalControl_SetTargetCurrent(target_ma / 1000.0f);
     BoardUart_Printf(BOARD_UART_PORT_DEBUG,
                      "ThermalControl current target: %ld uA, status=%s (%d)\r\n",
@@ -273,6 +336,11 @@ static void App_ProcessDebugLine(const char *line)
     if (App_ParseFloat(&line[8], &target_c) == 0u)
     {
       BoardUart_WriteString(BOARD_UART_PORT_DEBUG, "Bad argument. Usage: tc temp <degC>\r\n", 100u);
+      return;
+    }
+
+    if (App_EnsurePrecisionSampleMode() == 0u)
+    {
       return;
     }
 
@@ -303,6 +371,10 @@ static void App_PrintHelp(void)
                         "  rs485 tx - send a test line on CN4 RS485\r\n"
                         "  adcs <n> - read synchronized AD7190 samples\r\n"
                         "  adcf <n> - read filtered AD7190 samples\r\n"
+                        "  adch <n> - capture high-rate AD7190 samples\r\n"
+                        "  sample status - show ADC sample mode\r\n"
+                        "  sample mode precision - use precision ADC timing\r\n"
+                        "  sample mode highrate  - stop output and use high-rate ADC timing\r\n"
 
                         "  tc status      - show control loop state\r\n"
                         "  tc stop        - stop control and zero output\r\n"
@@ -467,6 +539,191 @@ static void App_PrintAdcFilteredSamples(uint32_t count)
   }
 }
 
+static void App_PrintHighRateAdcSamples(uint32_t count)
+{
+  ChipMeasure_Status status;
+  uint32_t index;
+  uint32_t start_us;
+  uint32_t last_sample_us = 0u;
+  uint32_t capture_us;
+  uint32_t avg_period_us;
+  uint32_t rate_hz;
+
+  if ((count == 0u) || (count > APP_ADC_HIGH_RATE_MAX_COUNT))
+  {
+    BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                     "Bad argument. Usage: adch <1-%lu>\r\n",
+                     (unsigned long)APP_ADC_HIGH_RATE_MAX_COUNT);
+    return;
+  }
+
+  if (ChipMeasure_GetSampleMode() != CHIP_MEASURE_SAMPLE_MODE_HIGH_RATE)
+  {
+    if (App_SetSampleMode(CHIP_MEASURE_SAMPLE_MODE_HIGH_RATE) == 0u)
+    {
+      return;
+    }
+  }
+
+  BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                   "AD7190 high-rate capture: count=%lu filter_word=%lu timer=%s\r\n",
+                   (unsigned long)count,
+                   (unsigned long)ChipMeasure_GetAdcFilterWord(),
+                   (s_high_res_timebase_ready != 0u) ? "TIM3" : "HAL");
+
+  status = ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
+  if (status != CHIP_MEASURE_OK)
+  {
+    BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                     "adch: select path status=%s (%d)\r\n",
+                     App_ChipMeasureStatusText(status),
+                     (int)status);
+    return;
+  }
+
+  start_us = App_Micros();
+
+  for (index = 0u; index < count; index++)
+  {
+    ChipMeasure_SyncSample sample;
+    uint32_t sample_us;
+
+    status = ChipMeasure_ReadSynchronizedFast(CHIP_MEASURE_PATH_EXTERNAL, &sample);
+    if (status != CHIP_MEASURE_OK)
+    {
+      BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                       "adch: sample=%lu status=%s (%d)\r\n",
+                       (unsigned long)(index + 1u),
+                       App_ChipMeasureStatusText(status),
+                       (int)status);
+      return;
+    }
+
+    sample_us = App_Micros();
+    s_high_rate_samples[index].t_us = (uint32_t)(sample_us - start_us);
+    s_high_rate_samples[index].dt_us = (index == 0u) ?
+                                      s_high_rate_samples[index].t_us :
+                                      (uint32_t)(sample_us - last_sample_us);
+    last_sample_us = sample_us;
+    s_high_rate_samples[index].current_na = App_FloatToMilli(sample.current_a * 1000000.0f);
+    s_high_rate_samples[index].voltage_uv = App_FloatToMilli(sample.load_voltage_v * 1000.0f);
+    s_high_rate_samples[index].current_adc_status = sample.current_adc_status;
+    s_high_rate_samples[index].voltage_adc_status = sample.voltage_adc_status;
+  }
+
+  capture_us = (uint32_t)(App_Micros() - start_us);
+  avg_period_us = (count > 0u) ? ((capture_us + (count / 2u)) / count) : 0u;
+  rate_hz = (capture_us > 0u) ? (((count * 1000000u) + (capture_us / 2u)) / capture_us) : 0u;
+
+  BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                   "AD7190 high-rate samples: count=%lu capture_us=%lu avg_period_us=%lu rate_hz=%lu\r\n",
+                   (unsigned long)count,
+                   (unsigned long)capture_us,
+                   (unsigned long)avg_period_us,
+                   (unsigned long)rate_hz);
+
+  for (index = 0u; index < count; index++)
+  {
+    BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                     "adch %lu: t=%lu us dt=%lu us I=%ld nA V=%ld uV status current=0x%02X voltage=0x%02X\r\n",
+                     (unsigned long)(index + 1u),
+                     (unsigned long)s_high_rate_samples[index].t_us,
+                     (unsigned long)s_high_rate_samples[index].dt_us,
+                     (long)s_high_rate_samples[index].current_na,
+                     (long)s_high_rate_samples[index].voltage_uv,
+                     s_high_rate_samples[index].current_adc_status,
+                     s_high_rate_samples[index].voltage_adc_status);
+  }
+}
+
+static void App_PrintSampleMode(void)
+{
+  ChipMeasure_SampleMode mode = ChipMeasure_GetSampleMode();
+
+  BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                   "Sample mode: %s filter_word=%lu\r\n",
+                   ChipMeasure_SampleModeText(mode),
+                   (unsigned long)ChipMeasure_GetAdcFilterWord());
+}
+
+static uint8_t App_SetSampleMode(ChipMeasure_SampleMode mode)
+{
+  ThermalControl_Status control_status;
+  BoardOutput_Status output_status;
+  ChipMeasure_Status measure_status;
+
+  control_status = ThermalControl_Stop();
+  output_status = BoardOutput_SetZero();
+  App_ResetAdcFilter();
+
+  if (output_status != BOARD_OUTPUT_OK)
+  {
+    BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                     "Sample mode not changed: output=%s (%d), control=%s\r\n",
+                     BoardOutput_StatusText(output_status),
+                     (int)output_status,
+                     ThermalControl_StatusText(control_status));
+    return 0u;
+  }
+
+  measure_status = ChipMeasure_SetSampleMode(mode);
+  BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                   "Sample mode set: %s filter_word=%lu status=%s (%d), output=%s, control=%s\r\n",
+                   ChipMeasure_SampleModeText(ChipMeasure_GetSampleMode()),
+                   (unsigned long)ChipMeasure_GetAdcFilterWord(),
+                   App_ChipMeasureStatusText(measure_status),
+                   (int)measure_status,
+                   BoardOutput_StatusText(output_status),
+                   ThermalControl_StatusText(control_status));
+
+  return (measure_status == CHIP_MEASURE_OK) ? 1u : 0u;
+}
+
+static uint8_t App_EnsurePrecisionSampleMode(void)
+{
+  if (ChipMeasure_GetSampleMode() == CHIP_MEASURE_SAMPLE_MODE_PRECISION)
+  {
+    return 1u;
+  }
+
+  return App_SetSampleMode(CHIP_MEASURE_SAMPLE_MODE_PRECISION);
+}
+
+static void App_InitHighResTimebase(void)
+{
+  s_high_res_timebase_overflows = 0u;
+  __HAL_TIM_SET_COUNTER(&htim3, 0u);
+  __HAL_TIM_CLEAR_FLAG(&htim3, (uint32_t)TIM_FLAG_UPDATE);
+
+  s_high_res_timebase_ready = (HAL_TIM_Base_Start_IT(&htim3) == HAL_OK) ? 1u : 0u;
+}
+
+static uint32_t App_Micros(void)
+{
+  uint32_t overflows_before;
+  uint32_t overflows_after;
+  uint32_t counter;
+
+  if (s_high_res_timebase_ready == 0u)
+  {
+    return HAL_GetTick() * 1000u;
+  }
+
+  do
+  {
+    overflows_before = s_high_res_timebase_overflows;
+    counter = __HAL_TIM_GET_COUNTER(&htim3);
+    overflows_after = s_high_res_timebase_overflows;
+  } while (overflows_before != overflows_after);
+
+  if (__HAL_TIM_GET_FLAG(&htim3, TIM_FLAG_UPDATE) != RESET)
+  {
+    counter = __HAL_TIM_GET_COUNTER(&htim3);
+    overflows_before++;
+  }
+
+  return (overflows_before * (APP_TIMEBASE_PERIOD + 1u)) + counter;
+}
 
 static uint8_t App_ParseFloat(const char *text, float *value)
 {
@@ -623,6 +880,7 @@ int main(void)
   MX_I2C1_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+  App_InitHighResTimebase();
   BoardUart_Init(&huart2, &huart1);
   BoardUart_WriteString(BOARD_UART_PORT_DEBUG, "\r\nChipController boot\r\n", 100u);
 
@@ -972,6 +1230,7 @@ static void MX_TIM3_Init(void)
 {
 
   /* USER CODE BEGIN TIM3_Init 0 */
+  uint32_t tim3_clock_hz;
 
   /* USER CODE END TIM3_Init 0 */
 
@@ -979,12 +1238,17 @@ static void MX_TIM3_Init(void)
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   /* USER CODE BEGIN TIM3_Init 1 */
+  tim3_clock_hz = HAL_RCC_GetPCLK1Freq();
+  if (tim3_clock_hz != HAL_RCC_GetHCLKFreq())
+  {
+    tim3_clock_hz *= 2u;
+  }
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 44999;
+  htim3.Init.Prescaler = (tim3_clock_hz / APP_TIMEBASE_HZ) - 1u;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 4999;
+  htim3.Init.Period = APP_TIMEBASE_PERIOD;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
@@ -1277,6 +1541,14 @@ static void MX_GPIO_Init(void)
 void App_ResetAdcFilter(void)
 {
   s_adc_filter_valid = 0u;
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if ((htim != NULL) && (htim->Instance == TIM3))
+  {
+    s_high_res_timebase_overflows++;
+  }
 }
 
 /* USER CODE END 4 */

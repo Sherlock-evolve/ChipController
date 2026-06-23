@@ -17,6 +17,10 @@ extern "C" {
 #include "stm32h7xx_hal.h"
 #include <stdint.h>
 
+#define AD7190_FILTER_WORD_MIN      1u
+#define AD7190_FILTER_WORD_MAX      1023u
+#define AD7190_FILTER_WORD_DEFAULT  96u
+
 typedef enum
 {
   AD7190_OK = 0,
@@ -55,6 +59,7 @@ typedef struct
   uint16_t sync_pin;
   float vref_volts;
   AD7190_Gain gain;
+  uint16_t filter_word;
   uint32_t timeout_ms;
 } AD7190_Handle;
 
@@ -78,6 +83,7 @@ AD7190_Status AD7190_Configure(AD7190_Handle *adc,
                                uint8_t bipolar,
                                uint8_t buffer_enabled,
                                uint8_t chop_enabled);
+AD7190_Status AD7190_SetFilterWord(AD7190_Handle *adc, uint16_t filter_word);
 AD7190_Status AD7190_StartSingle(AD7190_Handle *adc);
 AD7190_Status AD7190_WaitReady(AD7190_Handle *adc, uint8_t *status);
 AD7190_Status AD7190_ReadData(AD7190_Handle *adc, uint8_t status, AD7190_Reading *reading);

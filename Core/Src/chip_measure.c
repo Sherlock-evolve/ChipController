@@ -12,6 +12,8 @@
 
 #define CHIP_MEASURE_ADC_TIMEOUT_MS       1000u
 #define CHIP_MEASURE_ADC_VREF             5.0f
+#define CHIP_MEASURE_PRECISION_FILTER_WORD AD7190_FILTER_WORD_DEFAULT
+#define CHIP_MEASURE_HIGH_RATE_FILTER_WORD AD7190_FILTER_WORD_MIN
 #define CHIP_MEASURE_CURRENT_SHUNT_OHM    1.0f
 #define CHIP_MEASURE_MIN_CURRENT_A        0.000001f
 #define CHIP_MEASURE_RELAY_SETTLE_MS      5u
@@ -31,6 +33,7 @@ static AD7190_Handle s_current_adc = {
   .sync_pin = SPI1_SYNC_Pin,
   .vref_volts = CHIP_MEASURE_ADC_VREF,
   .gain = AD7190_GAIN_16,
+  .filter_word = CHIP_MEASURE_PRECISION_FILTER_WORD,
   .timeout_ms = CHIP_MEASURE_ADC_TIMEOUT_MS
 };
 
@@ -40,10 +43,20 @@ static AD7190_Handle s_voltage_adc = {
   .sync_pin = SPI2_SYNC_Pin,
   .vref_volts = CHIP_MEASURE_ADC_VREF,
   .gain = AD7190_GAIN_1,
+  .filter_word = CHIP_MEASURE_PRECISION_FILTER_WORD,
   .timeout_ms = CHIP_MEASURE_ADC_TIMEOUT_MS
 };
 
+static ChipMeasure_SampleMode s_sample_mode = CHIP_MEASURE_SAMPLE_MODE_PRECISION;
+
 static ChipMeasure_Status chip_measure_from_ad7190_status(AD7190_Status status);
+static ChipMeasure_Status chip_measure_apply_sample_mode(ChipMeasure_SampleMode mode);
+static ChipMeasure_Status chip_measure_configure_current_adc(uint16_t filter_word);
+static ChipMeasure_Status chip_measure_configure_voltage_adc(uint16_t filter_word);
+static uint16_t chip_measure_adc_filter_word_for_mode(ChipMeasure_SampleMode mode);
+static ChipMeasure_Status chip_measure_read_synchronized(ChipMeasure_Path path,
+                                                         ChipMeasure_SyncSample *sample,
+                                                         uint8_t select_path);
 static void chip_measure_set_adc_sync(uint8_t released);
 static float chip_measure_calibrate_current_sense(ChipMeasure_Path path, float raw_sense_voltage_v);
 static float chip_measure_calibrate_load_voltage(ChipMeasure_Path path, float raw_voltage_v);
@@ -61,59 +74,14 @@ ChipMeasure_Status ChipMeasure_Init(void)
     return chip_measure_from_ad7190_status(status);
   }
 
-  status = AD7190_Configure(&s_current_adc,
-                            AD7190_CHANNEL_AIN1_AIN2,
-                            AD7190_GAIN_16,
-                            1u,
-                            0u,
-                            0u);
-  if (status != AD7190_OK)
-  {
-    return chip_measure_from_ad7190_status(status);
-  }
-
-  status = AD7190_CalibrateZeroScale(&s_current_adc);
-  if (status != AD7190_OK)
-  {
-    return chip_measure_from_ad7190_status(status);
-  }
-
-  status = AD7190_CalibrateFullScale(&s_current_adc);
-  if (status != AD7190_OK)
-  {
-    return chip_measure_from_ad7190_status(status);
-  }
-
   status = AD7190_Init(&s_voltage_adc);
   if (status != AD7190_OK)
   {
     return chip_measure_from_ad7190_status(status);
   }
 
-  status = AD7190_Configure(&s_voltage_adc,
-                            AD7190_CHANNEL_AIN1_AIN2,
-                            AD7190_GAIN_1,
-                            1u,
-                            0u,
-                            0u);
-  if (status != AD7190_OK)
-  {
-    return chip_measure_from_ad7190_status(status);
-  }
-
-  status = AD7190_CalibrateZeroScale(&s_voltage_adc);
-  if (status != AD7190_OK)
-  {
-    return chip_measure_from_ad7190_status(status);
-  }
-
-  status = AD7190_CalibrateFullScale(&s_voltage_adc);
-  if (status != AD7190_OK)
-  {
-    return chip_measure_from_ad7190_status(status);
-  }
-
-  return CHIP_MEASURE_OK;
+  s_sample_mode = CHIP_MEASURE_SAMPLE_MODE_PRECISION;
+  return chip_measure_apply_sample_mode(s_sample_mode);
 }
 
 ChipMeasure_Status ChipMeasure_ReadAdcIds(uint8_t *current_adc_id, uint8_t *voltage_adc_id)
@@ -138,6 +106,57 @@ ChipMeasure_Status ChipMeasure_ReadAdcIds(uint8_t *current_adc_id, uint8_t *volt
   }
 
   return CHIP_MEASURE_OK;
+}
+
+ChipMeasure_Status ChipMeasure_SetSampleMode(ChipMeasure_SampleMode mode)
+{
+  ChipMeasure_Status status;
+
+  if ((mode != CHIP_MEASURE_SAMPLE_MODE_PRECISION) &&
+      (mode != CHIP_MEASURE_SAMPLE_MODE_HIGH_RATE))
+  {
+    return CHIP_MEASURE_INVALID_PARAM;
+  }
+
+  if (mode == s_sample_mode)
+  {
+    return CHIP_MEASURE_OK;
+  }
+
+  status = chip_measure_apply_sample_mode(mode);
+  if (status == CHIP_MEASURE_OK)
+  {
+    s_sample_mode = mode;
+  }
+  else
+  {
+    (void)chip_measure_apply_sample_mode(s_sample_mode);
+  }
+
+  return status;
+}
+
+ChipMeasure_SampleMode ChipMeasure_GetSampleMode(void)
+{
+  return s_sample_mode;
+}
+
+uint16_t ChipMeasure_GetAdcFilterWord(void)
+{
+  return chip_measure_adc_filter_word_for_mode(s_sample_mode);
+}
+
+const char *ChipMeasure_SampleModeText(ChipMeasure_SampleMode mode)
+{
+  switch (mode)
+  {
+    case CHIP_MEASURE_SAMPLE_MODE_PRECISION:
+      return "PRECISION";
+    case CHIP_MEASURE_SAMPLE_MODE_HIGH_RATE:
+      return "HIGH_RATE";
+    default:
+      return "UNKNOWN";
+  }
 }
 
 ChipMeasure_Status ChipMeasure_SelectPath(ChipMeasure_Path path)
@@ -232,6 +251,71 @@ ChipMeasure_Status ChipMeasure_ReadLoadVoltage(ChipMeasure_Path path,
 
 ChipMeasure_Status ChipMeasure_ReadSynchronized(ChipMeasure_Path path, ChipMeasure_SyncSample *sample)
 {
+  return chip_measure_read_synchronized(path, sample, 1u);
+}
+
+ChipMeasure_Status ChipMeasure_ReadSynchronizedFast(ChipMeasure_Path path, ChipMeasure_SyncSample *sample)
+{
+  return chip_measure_read_synchronized(path, sample, 0u);
+}
+
+ChipMeasure_Status ChipMeasure_ReadInternalR42(ChipMeasure_R42Sample *sample)
+{
+  ChipMeasure_Status status;
+
+  if (sample == NULL)
+  {
+    return CHIP_MEASURE_INVALID_PARAM;
+  }
+
+  sample->current_sense_voltage_v = 0.0f;
+  sample->current_a = 0.0f;
+  sample->load_voltage_raw_v = 0.0f;
+  sample->load_voltage_v = 0.0f;
+  sample->resistance_ohm = 0.0f;
+  sample->resistance_valid = 0u;
+
+  status = ChipMeasure_SelectPath(CHIP_MEASURE_PATH_INTERNAL_R42);
+  if (status != CHIP_MEASURE_OK)
+  {
+    return status;
+  }
+
+  status = ChipMeasure_ReadCurrent(CHIP_MEASURE_PATH_INTERNAL_R42,
+                                   &sample->current_a,
+                                   &sample->current_sense_voltage_v);
+  if (status != CHIP_MEASURE_OK)
+  {
+    (void)ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
+    return status;
+  }
+
+  status = ChipMeasure_ReadLoadVoltage(CHIP_MEASURE_PATH_INTERNAL_R42,
+                                       &sample->load_voltage_v,
+                                       &sample->load_voltage_raw_v);
+  if (status != CHIP_MEASURE_OK)
+  {
+    (void)ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
+    return status;
+  }
+
+  if (chip_measure_absf(sample->current_a) < CHIP_MEASURE_MIN_CURRENT_A)
+  {
+    (void)ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
+    return CHIP_MEASURE_NO_CURRENT;
+  }
+
+  sample->resistance_ohm = chip_measure_absf(sample->load_voltage_v) / chip_measure_absf(sample->current_a);
+  sample->resistance_valid = 1u;
+
+  (void)ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
+  return CHIP_MEASURE_OK;
+}
+
+static ChipMeasure_Status chip_measure_read_synchronized(ChipMeasure_Path path,
+                                                         ChipMeasure_SyncSample *sample,
+                                                         uint8_t select_path)
+{
   AD7190_Reading current_reading;
   AD7190_Reading voltage_reading;
   AD7190_Status adc_status;
@@ -251,10 +335,18 @@ ChipMeasure_Status ChipMeasure_ReadSynchronized(ChipMeasure_Path path, ChipMeasu
   sample->current_adc_status = 0u;
   sample->voltage_adc_status = 0u;
 
-  measure_status = ChipMeasure_SelectPath(path);
-  if (measure_status != CHIP_MEASURE_OK)
+  if ((path != CHIP_MEASURE_PATH_EXTERNAL) && (path != CHIP_MEASURE_PATH_INTERNAL_R42))
   {
-    return measure_status;
+    return CHIP_MEASURE_INVALID_PARAM;
+  }
+
+  if (select_path != 0u)
+  {
+    measure_status = ChipMeasure_SelectPath(path);
+    if (measure_status != CHIP_MEASURE_OK)
+    {
+      return measure_status;
+    }
   }
 
   chip_measure_set_adc_sync(0u);
@@ -321,59 +413,6 @@ ChipMeasure_Status ChipMeasure_ReadSynchronized(ChipMeasure_Path path, ChipMeasu
   return CHIP_MEASURE_OK;
 }
 
-ChipMeasure_Status ChipMeasure_ReadInternalR42(ChipMeasure_R42Sample *sample)
-{
-  ChipMeasure_Status status;
-
-  if (sample == NULL)
-  {
-    return CHIP_MEASURE_INVALID_PARAM;
-  }
-
-  sample->current_sense_voltage_v = 0.0f;
-  sample->current_a = 0.0f;
-  sample->load_voltage_raw_v = 0.0f;
-  sample->load_voltage_v = 0.0f;
-  sample->resistance_ohm = 0.0f;
-  sample->resistance_valid = 0u;
-
-  status = ChipMeasure_SelectPath(CHIP_MEASURE_PATH_INTERNAL_R42);
-  if (status != CHIP_MEASURE_OK)
-  {
-    return status;
-  }
-
-  status = ChipMeasure_ReadCurrent(CHIP_MEASURE_PATH_INTERNAL_R42,
-                                   &sample->current_a,
-                                   &sample->current_sense_voltage_v);
-  if (status != CHIP_MEASURE_OK)
-  {
-    (void)ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
-    return status;
-  }
-
-  status = ChipMeasure_ReadLoadVoltage(CHIP_MEASURE_PATH_INTERNAL_R42,
-                                       &sample->load_voltage_v,
-                                       &sample->load_voltage_raw_v);
-  if (status != CHIP_MEASURE_OK)
-  {
-    (void)ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
-    return status;
-  }
-
-  if (chip_measure_absf(sample->current_a) < CHIP_MEASURE_MIN_CURRENT_A)
-  {
-    (void)ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
-    return CHIP_MEASURE_NO_CURRENT;
-  }
-
-  sample->resistance_ohm = chip_measure_absf(sample->load_voltage_v) / chip_measure_absf(sample->current_a);
-  sample->resistance_valid = 1u;
-
-  (void)ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
-  return CHIP_MEASURE_OK;
-}
-
 static ChipMeasure_Status chip_measure_from_ad7190_status(AD7190_Status status)
 {
   switch (status)
@@ -390,6 +429,118 @@ static ChipMeasure_Status chip_measure_from_ad7190_status(AD7190_Status status)
     default:
       return CHIP_MEASURE_ERROR;
   }
+}
+
+static ChipMeasure_Status chip_measure_apply_sample_mode(ChipMeasure_SampleMode mode)
+{
+  ChipMeasure_Status status;
+  uint16_t filter_word;
+
+  filter_word = chip_measure_adc_filter_word_for_mode(mode);
+
+  status = ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
+  if (status != CHIP_MEASURE_OK)
+  {
+    return status;
+  }
+
+  chip_measure_set_adc_sync(1u);
+
+  status = chip_measure_configure_current_adc(filter_word);
+  if (status != CHIP_MEASURE_OK)
+  {
+    return status;
+  }
+
+  status = chip_measure_configure_voltage_adc(filter_word);
+  if (status != CHIP_MEASURE_OK)
+  {
+    return status;
+  }
+
+  return CHIP_MEASURE_OK;
+}
+
+static ChipMeasure_Status chip_measure_configure_current_adc(uint16_t filter_word)
+{
+  AD7190_Status status;
+
+  status = AD7190_SetFilterWord(&s_current_adc, filter_word);
+  if (status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(status);
+  }
+
+  status = AD7190_Configure(&s_current_adc,
+                            AD7190_CHANNEL_AIN1_AIN2,
+                            AD7190_GAIN_16,
+                            1u,
+                            0u,
+                            0u);
+  if (status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(status);
+  }
+
+  status = AD7190_CalibrateZeroScale(&s_current_adc);
+  if (status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(status);
+  }
+
+  status = AD7190_CalibrateFullScale(&s_current_adc);
+  if (status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(status);
+  }
+
+  return CHIP_MEASURE_OK;
+}
+
+static ChipMeasure_Status chip_measure_configure_voltage_adc(uint16_t filter_word)
+{
+  AD7190_Status status;
+
+  status = AD7190_SetFilterWord(&s_voltage_adc, filter_word);
+  if (status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(status);
+  }
+
+  status = AD7190_Configure(&s_voltage_adc,
+                            AD7190_CHANNEL_AIN1_AIN2,
+                            AD7190_GAIN_1,
+                            1u,
+                            0u,
+                            0u);
+  if (status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(status);
+  }
+
+  status = AD7190_CalibrateZeroScale(&s_voltage_adc);
+  if (status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(status);
+  }
+
+  status = AD7190_CalibrateFullScale(&s_voltage_adc);
+  if (status != AD7190_OK)
+  {
+    return chip_measure_from_ad7190_status(status);
+  }
+
+  return CHIP_MEASURE_OK;
+}
+
+static uint16_t chip_measure_adc_filter_word_for_mode(ChipMeasure_SampleMode mode)
+{
+  if (mode == CHIP_MEASURE_SAMPLE_MODE_HIGH_RATE)
+  {
+    return CHIP_MEASURE_HIGH_RATE_FILTER_WORD;
+  }
+
+  return CHIP_MEASURE_PRECISION_FILTER_WORD;
 }
 
 static void chip_measure_set_adc_sync(uint8_t released)

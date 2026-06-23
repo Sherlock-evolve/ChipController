@@ -25,7 +25,6 @@
 #define AD7190_MODE_SINGLE              (1u << 21)
 #define AD7190_MODE_INTERNAL_ZERO_SCALE (0x80u << 16)
 #define AD7190_MODE_INTERNAL_FULL_SCALE (0xA0u << 16)
-#define AD7190_MODE_FS_16HZ             96u
 
 #define AD7190_CONFIG_CHOP          (1u << 23)
 #define AD7190_CONFIG_REFDET        (1u << 6)
@@ -41,6 +40,7 @@ static AD7190_Status ad7190_write_register(AD7190_Handle *adc,
                                            uint32_t value,
                                            uint8_t len);
 static AD7190_Status ad7190_write_mode(AD7190_Handle *adc, uint32_t mode);
+static uint16_t ad7190_get_filter_word(AD7190_Handle *adc);
 static uint8_t ad7190_gain_value(AD7190_Gain gain);
 
 AD7190_Status AD7190_Init(AD7190_Handle *adc)
@@ -130,7 +130,7 @@ AD7190_Status AD7190_CalibrateZeroScale(AD7190_Handle *adc)
   result = ad7190_write_mode(adc,
                              AD7190_MODE_INTERNAL_ZERO_SCALE |
                              AD7190_MODE_INTERNAL_CLOCK |
-                             AD7190_MODE_FS_16HZ);
+                             (uint32_t)ad7190_get_filter_word(adc));
   if (result != AD7190_OK)
   {
     return result;
@@ -163,7 +163,7 @@ AD7190_Status AD7190_CalibrateFullScale(AD7190_Handle *adc)
   result = ad7190_write_mode(adc,
                              AD7190_MODE_INTERNAL_FULL_SCALE |
                              AD7190_MODE_INTERNAL_CLOCK |
-                             AD7190_MODE_FS_16HZ);
+                             (uint32_t)ad7190_get_filter_word(adc));
   if (result != AD7190_OK)
   {
     return result;
@@ -222,6 +222,19 @@ AD7190_Status AD7190_Configure(AD7190_Handle *adc,
   return ad7190_write_register(adc, AD7190_REG_CONFIG, config, 3u);
 }
 
+AD7190_Status AD7190_SetFilterWord(AD7190_Handle *adc, uint16_t filter_word)
+{
+  if ((adc == NULL) ||
+      (filter_word < AD7190_FILTER_WORD_MIN) ||
+      (filter_word > AD7190_FILTER_WORD_MAX))
+  {
+    return AD7190_INVALID_PARAM;
+  }
+
+  adc->filter_word = filter_word;
+  return AD7190_OK;
+}
+
 AD7190_Status AD7190_StartSingle(AD7190_Handle *adc)
 {
   if ((adc == NULL) || (adc->hspi == NULL))
@@ -229,7 +242,10 @@ AD7190_Status AD7190_StartSingle(AD7190_Handle *adc)
     return AD7190_INVALID_PARAM;
   }
 
-  return ad7190_write_mode(adc, AD7190_MODE_SINGLE | AD7190_MODE_INTERNAL_CLOCK | AD7190_MODE_FS_16HZ);
+  return ad7190_write_mode(adc,
+                           AD7190_MODE_SINGLE |
+                           AD7190_MODE_INTERNAL_CLOCK |
+                           (uint32_t)ad7190_get_filter_word(adc));
 }
 
 AD7190_Status AD7190_WaitReady(AD7190_Handle *adc, uint8_t *status)
@@ -383,6 +399,18 @@ static AD7190_Status ad7190_write_register(AD7190_Handle *adc,
 static AD7190_Status ad7190_write_mode(AD7190_Handle *adc, uint32_t mode)
 {
   return ad7190_write_register(adc, AD7190_REG_MODE, mode, 3u);
+}
+
+static uint16_t ad7190_get_filter_word(AD7190_Handle *adc)
+{
+  if ((adc == NULL) ||
+      (adc->filter_word < AD7190_FILTER_WORD_MIN) ||
+      (adc->filter_word > AD7190_FILTER_WORD_MAX))
+  {
+    return AD7190_FILTER_WORD_DEFAULT;
+  }
+
+  return adc->filter_word;
 }
 
 static uint8_t ad7190_gain_value(AD7190_Gain gain)
