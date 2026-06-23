@@ -566,16 +566,16 @@ static void App_PrintHighRateAdcSamples(uint32_t count)
   }
 
   BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                   "AD7190 high-rate capture: count=%lu filter_word=%lu timer=%s\r\n",
+                   "AD7190 high-rate capture: count=%lu filter_word=%lu timer=%s stream=continuous\r\n",
                    (unsigned long)count,
                    (unsigned long)ChipMeasure_GetAdcFilterWord(),
                    (s_high_res_timebase_ready != 0u) ? "TIM3" : "HAL");
 
-  status = ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
+  status = ChipMeasure_StartHighRateStream(CHIP_MEASURE_PATH_EXTERNAL);
   if (status != CHIP_MEASURE_OK)
   {
     BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                     "adch: select path status=%s (%d)\r\n",
+                     "adch: stream start status=%s (%d)\r\n",
                      App_ChipMeasureStatusText(status),
                      (int)status);
     return;
@@ -588,7 +588,7 @@ static void App_PrintHighRateAdcSamples(uint32_t count)
     ChipMeasure_SyncSample sample;
     uint32_t sample_us;
 
-    status = ChipMeasure_ReadSynchronizedFast(CHIP_MEASURE_PATH_EXTERNAL, &sample);
+    status = ChipMeasure_ReadHighRateStreamSample(CHIP_MEASURE_PATH_EXTERNAL, &sample);
     if (status != CHIP_MEASURE_OK)
     {
       BoardUart_Printf(BOARD_UART_PORT_DEBUG,
@@ -1001,7 +1001,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLM = 2;
   RCC_OscInitStruct.PLL.PLLN = 72;
   RCC_OscInitStruct.PLL.PLLP = 2;
-  RCC_OscInitStruct.PLL.PLLQ = 18;
+  RCC_OscInitStruct.PLL.PLLQ = 23;
   RCC_OscInitStruct.PLL.PLLR = 2;
   RCC_OscInitStruct.PLL.PLLRGE = RCC_PLL1VCIRANGE_3;
   RCC_OscInitStruct.PLL.PLLVCOSEL = RCC_PLL1VCOWIDE;
@@ -1101,7 +1101,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_HIGH;
   hspi1.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -1149,7 +1149,7 @@ static void MX_SPI2_Init(void)
   hspi2.Init.CLKPolarity = SPI_POLARITY_HIGH;
   hspi2.Init.CLKPhase = SPI_PHASE_2EDGE;
   hspi2.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_256;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
   hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;

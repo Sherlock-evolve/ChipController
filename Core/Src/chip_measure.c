@@ -56,7 +56,9 @@ static ChipMeasure_Status chip_measure_configure_voltage_adc(uint16_t filter_wor
 static uint16_t chip_measure_adc_filter_word_for_mode(ChipMeasure_SampleMode mode);
 static ChipMeasure_Status chip_measure_read_synchronized(ChipMeasure_Path path,
                                                          ChipMeasure_SyncSample *sample,
-                                                         uint8_t select_path);
+                                                         uint8_t select_path,
+                                                         uint8_t start_single,
+                                                         uint8_t wait_both_ready);
 static void chip_measure_set_adc_sync(uint8_t released);
 static float chip_measure_calibrate_current_sense(ChipMeasure_Path path, float raw_sense_voltage_v);
 static float chip_measure_calibrate_load_voltage(ChipMeasure_Path path, float raw_voltage_v);
@@ -251,12 +253,54 @@ ChipMeasure_Status ChipMeasure_ReadLoadVoltage(ChipMeasure_Path path,
 
 ChipMeasure_Status ChipMeasure_ReadSynchronized(ChipMeasure_Path path, ChipMeasure_SyncSample *sample)
 {
-  return chip_measure_read_synchronized(path, sample, 1u);
+  return chip_measure_read_synchronized(path, sample, 1u, 1u, 1u);
 }
 
 ChipMeasure_Status ChipMeasure_ReadSynchronizedFast(ChipMeasure_Path path, ChipMeasure_SyncSample *sample)
 {
-  return chip_measure_read_synchronized(path, sample, 0u);
+  return chip_measure_read_synchronized(path, sample, 0u, 1u, 0u);
+}
+
+ChipMeasure_Status ChipMeasure_StartHighRateStream(ChipMeasure_Path path)
+{
+  ChipMeasure_Status measure_status;
+  AD7190_Status adc_status;
+
+  if ((path != CHIP_MEASURE_PATH_EXTERNAL) && (path != CHIP_MEASURE_PATH_INTERNAL_R42))
+  {
+    return CHIP_MEASURE_INVALID_PARAM;
+  }
+
+  measure_status = ChipMeasure_SelectPath(path);
+  if (measure_status != CHIP_MEASURE_OK)
+  {
+    return measure_status;
+  }
+
+  chip_measure_set_adc_sync(0u);
+
+  adc_status = AD7190_StartContinuous(&s_current_adc);
+  if (adc_status != AD7190_OK)
+  {
+    chip_measure_set_adc_sync(1u);
+    return chip_measure_from_ad7190_status(adc_status);
+  }
+
+  adc_status = AD7190_StartContinuous(&s_voltage_adc);
+  if (adc_status != AD7190_OK)
+  {
+    chip_measure_set_adc_sync(1u);
+    return chip_measure_from_ad7190_status(adc_status);
+  }
+
+  chip_measure_set_adc_sync(1u);
+
+  return CHIP_MEASURE_OK;
+}
+
+ChipMeasure_Status ChipMeasure_ReadHighRateStreamSample(ChipMeasure_Path path, ChipMeasure_SyncSample *sample)
+{
+  return chip_measure_read_synchronized(path, sample, 0u, 0u, 0u);
 }
 
 ChipMeasure_Status ChipMeasure_ReadInternalR42(ChipMeasure_R42Sample *sample)
@@ -314,7 +358,9 @@ ChipMeasure_Status ChipMeasure_ReadInternalR42(ChipMeasure_R42Sample *sample)
 
 static ChipMeasure_Status chip_measure_read_synchronized(ChipMeasure_Path path,
                                                          ChipMeasure_SyncSample *sample,
-                                                         uint8_t select_path)
+                                                         uint8_t select_path,
+                                                         uint8_t start_single,
+                                                         uint8_t wait_both_ready)
 {
   AD7190_Reading current_reading;
   AD7190_Reading voltage_reading;
@@ -349,23 +395,26 @@ static ChipMeasure_Status chip_measure_read_synchronized(ChipMeasure_Path path,
     }
   }
 
-  chip_measure_set_adc_sync(0u);
-
-  adc_status = AD7190_StartSingle(&s_current_adc);
-  if (adc_status != AD7190_OK)
+  if (start_single != 0u)
   {
-    chip_measure_set_adc_sync(1u);
-    return chip_measure_from_ad7190_status(adc_status);
-  }
+    chip_measure_set_adc_sync(0u);
 
-  adc_status = AD7190_StartSingle(&s_voltage_adc);
-  if (adc_status != AD7190_OK)
-  {
-    chip_measure_set_adc_sync(1u);
-    return chip_measure_from_ad7190_status(adc_status);
-  }
+    adc_status = AD7190_StartSingle(&s_current_adc);
+    if (adc_status != AD7190_OK)
+    {
+      chip_measure_set_adc_sync(1u);
+      return chip_measure_from_ad7190_status(adc_status);
+    }
 
-  chip_measure_set_adc_sync(1u);
+    adc_status = AD7190_StartSingle(&s_voltage_adc);
+    if (adc_status != AD7190_OK)
+    {
+      chip_measure_set_adc_sync(1u);
+      return chip_measure_from_ad7190_status(adc_status);
+    }
+
+    chip_measure_set_adc_sync(1u);
+  }
 
   adc_status = AD7190_WaitReady(&s_current_adc, &current_status);
   if (adc_status != AD7190_OK)
@@ -373,10 +422,21 @@ static ChipMeasure_Status chip_measure_read_synchronized(ChipMeasure_Path path,
     return chip_measure_from_ad7190_status(adc_status);
   }
 
-  adc_status = AD7190_WaitReady(&s_voltage_adc, &voltage_status);
-  if (adc_status != AD7190_OK)
+  if (wait_both_ready != 0u)
   {
-    return chip_measure_from_ad7190_status(adc_status);
+    adc_status = AD7190_WaitReady(&s_voltage_adc, &voltage_status);
+    if (adc_status != AD7190_OK)
+    {
+      return chip_measure_from_ad7190_status(adc_status);
+    }
+  }
+  else
+  {
+    /*
+     * High-rate paths start both ADCs from a shared SYNC release. Waiting on
+     * one RDY avoids a second status poll after the paired conversion is ready.
+     */
+    voltage_status = 0u;
   }
 
   adc_status = AD7190_ReadData(&s_current_adc, current_status, &current_reading);

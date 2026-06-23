@@ -72,6 +72,8 @@ ChipMeasure_Status ChipMeasure_ReadLoadVoltage(ChipMeasure_Path path,
                                                float *raw_voltage_v);
 ChipMeasure_Status ChipMeasure_ReadSynchronized(ChipMeasure_Path path, ChipMeasure_SyncSample *sample);
 ChipMeasure_Status ChipMeasure_ReadSynchronizedFast(ChipMeasure_Path path, ChipMeasure_SyncSample *sample);
+ChipMeasure_Status ChipMeasure_StartHighRateStream(ChipMeasure_Path path);
+ChipMeasure_Status ChipMeasure_ReadHighRateStreamSample(ChipMeasure_Path path, ChipMeasure_SyncSample *sample);
 ChipMeasure_Status ChipMeasure_ReadInternalR42(ChipMeasure_R42Sample *sample);
 
 #ifdef __cplusplus

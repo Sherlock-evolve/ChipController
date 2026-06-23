@@ -22,6 +22,7 @@
 #define AD7190_STATUS_NOREF    0x20u
 
 #define AD7190_MODE_INTERNAL_CLOCK      (2u << 18)
+#define AD7190_MODE_CONTINUOUS          0u
 #define AD7190_MODE_SINGLE              (1u << 21)
 #define AD7190_MODE_INTERNAL_ZERO_SCALE (0x80u << 16)
 #define AD7190_MODE_INTERNAL_FULL_SCALE (0xA0u << 16)
@@ -233,6 +234,19 @@ AD7190_Status AD7190_SetFilterWord(AD7190_Handle *adc, uint16_t filter_word)
 
   adc->filter_word = filter_word;
   return AD7190_OK;
+}
+
+AD7190_Status AD7190_StartContinuous(AD7190_Handle *adc)
+{
+  if ((adc == NULL) || (adc->hspi == NULL))
+  {
+    return AD7190_INVALID_PARAM;
+  }
+
+  return ad7190_write_mode(adc,
+                           AD7190_MODE_CONTINUOUS |
+                           AD7190_MODE_INTERNAL_CLOCK |
+                           (uint32_t)ad7190_get_filter_word(adc));
 }
 
 AD7190_Status AD7190_StartSingle(AD7190_Handle *adc)

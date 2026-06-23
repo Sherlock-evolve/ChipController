@@ -84,6 +84,7 @@ AD7190_Status AD7190_Configure(AD7190_Handle *adc,
                                uint8_t buffer_enabled,
                                uint8_t chop_enabled);
 AD7190_Status AD7190_SetFilterWord(AD7190_Handle *adc, uint16_t filter_word);
+AD7190_Status AD7190_StartContinuous(AD7190_Handle *adc);
 AD7190_Status AD7190_StartSingle(AD7190_Handle *adc);
 AD7190_Status AD7190_WaitReady(AD7190_Handle *adc, uint8_t *status);
 AD7190_Status AD7190_ReadData(AD7190_Handle *adc, uint8_t status, AD7190_Reading *reading);
