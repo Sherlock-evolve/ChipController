@@ -33,7 +33,12 @@ from PySide6.QtWidgets import (
 CSV_HEADER = "index,tick_ms,status,current_nA,voltage_uV,resistance_mOhm,current_adc_status,voltage_adc_status"
 CHIP_COMMAND_CHAR_DELAY_MS = 5
 ADC_FILTER_SAMPLE_COUNT = 1
+ADC_HIGH_RATE_SAMPLE_COUNT_DEFAULT = 20
+BOARD_OUTPUT_MAX_DRIVE_MV = 500
 TREND_MAX_POINTS = 900
+
+SAMPLE_MODE_PRECISION = "precision"
+SAMPLE_MODE_HIGH_RATE = "high_rate"
 
 
 @dataclass
@@ -56,6 +61,18 @@ class AdcFilteredSample:
     resistance_uohm: int
     current_adc_status: int
     voltage_adc_status: int
+
+
+@dataclass
+class HighRateSample:
+    index: int
+    t_us: int
+    dt_us: int
+    current_na: int
+    voltage_uv: int
+    current_adc_status: int
+    voltage_adc_status: int
+    t_monotonic: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -96,7 +113,7 @@ class TrendPlotWidget(QWidget):
         self._visible = {series.key: series.default_visible for series in TREND_SERIES}
         self.setMinimumHeight(260)
 
-    def add_sample(self, values):
+    def add_sample(self, values, timestamp=None):
         clean = {}
         for series in TREND_SERIES:
             value = values.get(series.key)
@@ -108,7 +125,11 @@ class TrendPlotWidget(QWidget):
                 continue
         if not clean:
             return
-        self._samples.append((time.monotonic() - self._start_time, clean))
+        if timestamp is None:
+            when = time.monotonic() - self._start_time
+        else:
+            when = timestamp - self._start_time
+        self._samples.append((when, clean))
         self.update()
 
     def clear(self):
@@ -334,6 +355,9 @@ class ChipAsciiClient(QObject):
     logLine = Signal(str)
     sampleReceived = Signal(object)
     filteredSampleReceived = Signal(object)
+    highRateSampleReceived = Signal(object)
+    highRateInfoReceived = Signal(dict)
+    sampleModeReceived = Signal(str, int)
     controlStatusReceived = Signal(dict)
     boardTemperatureReceived = Signal(dict)
 
@@ -350,6 +374,9 @@ class ChipAsciiClient(QObject):
         self._adcf_pending = False
         self._adcf_expected_count = 0
         self._adcf_last_sample = None
+        self._adch_pending = False
+        self._adch_last_rate_hz = None
+        self._adch_burst_base_t = None
 
     def is_open(self):
         return self.port.isOpen()
@@ -371,6 +398,7 @@ class ChipAsciiClient(QObject):
         self._tx_timer.stop()
         self._tx_queue.clear()
         self._adcf_pending = False
+        self._adch_pending = False
         if self.port.isOpen():
             self.port.close()
         self.connectedChanged.emit(False)
@@ -386,6 +414,9 @@ class ChipAsciiClient(QObject):
     def set_current_ma(self, current_ma):
         self.send_command(f"tc current {current_ma:.3f}")
 
+    def set_drive_mv(self, drive_mv):
+        self.send_command(f"drive {drive_mv:.1f}")
+
     def stop_control(self):
         self.send_command("tc stop")
 
@@ -393,6 +424,8 @@ class ChipAsciiClient(QObject):
         self._adcf_pending = False
         self._adcf_expected_count = 0
         self._adcf_last_sample = None
+        self._adch_pending = False
+        self._adch_burst_base_t = None
 
     def request_filtered_adc(self, count):
         if self._adcf_pending:
@@ -407,6 +440,18 @@ class ChipAsciiClient(QObject):
         self._adcf_pending = False
         self._adcf_expected_count = 0
         self._adcf_last_sample = None
+
+    def request_high_rate_adc(self, count):
+        if self._adch_pending:
+            return False
+        self._adch_pending = True
+        self._adch_burst_base_t = None
+        self.send_command(f"adch {int(count)}")
+        return True
+
+    def clear_high_rate_adc_pending(self):
+        self._adch_pending = False
+        self._adch_burst_base_t = None
 
     def request_status(self):
         self.send_command("tc status")
@@ -442,6 +487,27 @@ class ChipAsciiClient(QObject):
 
     def _handle_line(self, line):
         if self._handle_filtered_adc_line(line):
+            return
+
+        if self._handle_high_rate_line(line):
+            return
+
+        if line.startswith("Sample mode: "):
+            values = parse_key_values(line[len("Sample mode: "):])
+            mode_text = ""
+            for key in ("mode", "Mode"):
+                if key in values:
+                    mode_text = values[key]
+                    break
+            if not mode_text:
+                tail = line[len("Sample mode: "):].split()
+                if tail:
+                    mode_text = tail[0]
+            try:
+                filter_word = int(values.get("filter_word", 0))
+            except ValueError:
+                filter_word = 0
+            self.sampleModeReceived.emit(mode_text, filter_word)
             return
 
         self.logLine.emit(line)
@@ -537,6 +603,56 @@ class ChipAsciiClient(QObject):
             pass
         return True
 
+    def _handle_high_rate_line(self, line):
+        if line.startswith("AD7190 high-rate capture:"):
+            # Start of a new burst; reset the intra-burst time reference.
+            self._adch_burst_base_t = None
+            return True
+
+        m = re.match(
+            r"^adch (\d+): t=(\d+) us dt=(\d+) us I=(-?\d+) nA V=(-?\d+) uV "
+            r"status current=(0x[0-9A-Fa-f]+) voltage=(0x[0-9A-Fa-f]+)$",
+            line,
+        )
+        if m:
+            try:
+                if self._adch_burst_base_t is None:
+                    self._adch_burst_base_t = time.monotonic()
+                t_us = int(m.group(2))
+                sample = HighRateSample(
+                    index=int(m.group(1)),
+                    t_us=t_us,
+                    dt_us=int(m.group(3)),
+                    current_na=int(m.group(4)),
+                    voltage_uv=int(m.group(5)),
+                    current_adc_status=int(m.group(6), 16),
+                    voltage_adc_status=int(m.group(7), 16),
+                    t_monotonic=self._adch_burst_base_t + t_us / 1_000_000.0,
+                )
+                self.highRateSampleReceived.emit(sample)
+            except (TypeError, ValueError):
+                pass
+            return True
+
+        if line.startswith("AD7190 high-rate samples:"):
+            values = parse_key_values(line)
+            try:
+                rate_hz = int(values.get("rate_hz", 0))
+            except ValueError:
+                rate_hz = 0
+            self._adch_last_rate_hz = rate_hz
+            self._adch_pending = False
+            self._adch_burst_base_t = None
+            self.highRateInfoReceived.emit({
+                "rate_hz": rate_hz,
+                "count": values.get("count"),
+                "capture_us": values.get("capture_us"),
+                "avg_period_us": values.get("avg_period_us"),
+            })
+            return True
+
+        return False
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -546,15 +662,23 @@ class MainWindow(QMainWindow):
 
         self.chip = ChipAsciiClient(self)
         self.telemetry_values = {}
+        self.sample_mode = SAMPLE_MODE_PRECISION
         self._build_ui()
         self._connect_signals()
         self.refresh_ports()
+        self._apply_mode_controls()
 
         self.adc_filter_timer = QTimer(self)
         self.adc_filter_timer.timeout.connect(self._request_filtered_adc)
         self.adc_filter_watchdog = QTimer(self)
         self.adc_filter_watchdog.setSingleShot(True)
         self.adc_filter_watchdog.timeout.connect(self._adcf_timeout)
+
+        self.high_rate_timer = QTimer(self)
+        self.high_rate_timer.timeout.connect(self._request_high_rate_adc)
+        self.high_rate_watchdog = QTimer(self)
+        self.high_rate_watchdog.setSingleShot(True)
+        self.high_rate_watchdog.timeout.connect(self._adch_timeout)
 
         self.status_timer = QTimer(self)
         self.status_timer.timeout.connect(self._poll_chip_status)
@@ -626,6 +750,11 @@ class MainWindow(QMainWindow):
         group = QGroupBox("电流与采样")
         form = QFormLayout(group)
 
+        self.sample_mode_combo = QComboBox()
+        self.sample_mode_combo.addItem("精密模式", SAMPLE_MODE_PRECISION)
+        self.sample_mode_combo.addItem("高速模式", SAMPLE_MODE_HIGH_RATE)
+        form.addRow("采样模式", self.sample_mode_combo)
+
         self.current_ma = QDoubleSpinBox()
         self.current_ma.setRange(0.0, 20.0)
         self.current_ma.setDecimals(3)
@@ -639,7 +768,23 @@ class MainWindow(QMainWindow):
         current_row.addWidget(self.current_ma)
         current_row.addWidget(self.set_current)
         current_row.addWidget(self.stop_current)
-        form.addRow("目标电流 mA", current_row)
+        form.addRow("恒流目标 mA", current_row)
+
+        self.drive_mv = QDoubleSpinBox()
+        self.drive_mv.setRange(0.0, float(BOARD_OUTPUT_MAX_DRIVE_MV))
+        self.drive_mv.setDecimals(1)
+        self.drive_mv.setSingleStep(10.0)
+        self.drive_mv.setValue(0.0)
+        self.drive_mv.setSuffix(" mV")
+
+        self.set_drive = QPushButton("设置驱动")
+        self.stop_drive = QPushButton("停止/归零")
+
+        drive_row = QHBoxLayout()
+        drive_row.addWidget(self.drive_mv)
+        drive_row.addWidget(self.set_drive)
+        drive_row.addWidget(self.stop_drive)
+        form.addRow("驱动电压 mV", drive_row)
 
         self.filter_period = QSpinBox()
         self.filter_period.setRange(100, 60000)
@@ -653,11 +798,35 @@ class MainWindow(QMainWindow):
         filter_row.addWidget(self.filter_period)
         filter_row.addWidget(self.start_stream)
         filter_row.addWidget(self.stop_stream)
-        form.addRow("采样周期", filter_row)
+        form.addRow("滤波采样周期", filter_row)
+
+        self.high_rate_period = QSpinBox()
+        self.high_rate_period.setRange(50, 10000)
+        self.high_rate_period.setValue(200)
+        self.high_rate_period.setSuffix(" ms")
+
+        self.high_rate_count = QSpinBox()
+        self.high_rate_count.setRange(1, 100)
+        self.high_rate_count.setValue(ADC_HIGH_RATE_SAMPLE_COUNT_DEFAULT)
+
+        self.start_highrate = QPushButton("开始高速采样")
+        self.stop_highrate = QPushButton("停止高速采样")
+
+        highrate_row = QHBoxLayout()
+        highrate_row.addWidget(self.high_rate_period)
+        highrate_row.addWidget(QLabel("样本数"))
+        highrate_row.addWidget(self.high_rate_count)
+        highrate_row.addWidget(self.start_highrate)
+        highrate_row.addWidget(self.stop_highrate)
+        form.addRow("高速采样", highrate_row)
 
         self.poll_status = QCheckBox("轮询 tc status")
         self.poll_status.setChecked(True)
         form.addRow("", self.poll_status)
+
+        self.mode_info_label = QLabel("精密模式")
+        self.mode_info_label.setStyleSheet("color: #344054;")
+        form.addRow("当前模式", self.mode_info_label)
         return group
 
     def _build_measure_group(self):
@@ -697,16 +866,24 @@ class MainWindow(QMainWindow):
     def _connect_signals(self):
         self.chip_refresh.clicked.connect(self.refresh_ports)
         self.chip_connect.clicked.connect(self._toggle_chip)
+        self.sample_mode_combo.currentIndexChanged.connect(self._on_sample_mode_changed)
         self.set_current.clicked.connect(self._set_current)
-        self.stop_current.clicked.connect(self._stop_current)
+        self.stop_current.clicked.connect(self._stop_output)
+        self.set_drive.clicked.connect(self._set_drive)
+        self.stop_drive.clicked.connect(self._stop_output)
         self.start_stream.clicked.connect(self._start_stream)
         self.stop_stream.clicked.connect(self._stop_stream)
+        self.start_highrate.clicked.connect(self._start_highrate)
+        self.stop_highrate.clicked.connect(self._stop_highrate)
         self.clear_trend.clicked.connect(self._clear_trend)
 
         self.chip.connectedChanged.connect(self._chip_connected_changed)
         self.chip.logLine.connect(self._append_log)
         self.chip.sampleReceived.connect(self._update_sample)
         self.chip.filteredSampleReceived.connect(self._update_filtered_sample)
+        self.chip.highRateSampleReceived.connect(self._update_high_rate_sample)
+        self.chip.highRateInfoReceived.connect(self._update_high_rate_info)
+        self.chip.sampleModeReceived.connect(self._update_sample_mode)
         self.chip.controlStatusReceived.connect(self._update_control_status)
         self.chip.boardTemperatureReceived.connect(self._update_board_temperature)
 
@@ -739,6 +916,9 @@ class MainWindow(QMainWindow):
     def _chip_connected_changed(self, connected):
         self.chip_connect.setText("断开" if connected else "连接")
         self._append_log("ChipController connected" if connected else "ChipController disconnected")
+        if connected:
+            # Sync the GUI mode with whatever mode the firmware booted into.
+            self.chip.send_command("sample status")
 
     def _set_current(self):
         target_ma = self.current_ma.value()
@@ -746,9 +926,26 @@ class MainWindow(QMainWindow):
         if self.chip.is_open():
             self._record_telemetry(target_current_ma=target_ma)
 
-    def _stop_current(self):
+    def _set_drive(self):
+        target_mv = self.drive_mv.value()
+        self.chip.set_drive_mv(target_mv)
+        # Open-loop: commanded value is the applied value (spinbox is clamped to the
+        # same 0-500 mV as the firmware). Update the display directly because the
+        # drive-voltage field is otherwise only fed by tc status, which we don't
+        # poll in high-rate mode.
+        applied_mv = min(target_mv, BOARD_OUTPUT_MAX_DRIVE_MV)
+        self._apply_drive_display(applied_mv)
+        self._append_log(f"drive -> {applied_mv:.1f} mV (open-loop)")
+
+    def _apply_drive_display(self, drive_mv):
+        self.control_drive.setText(f"{drive_mv:.0f} mV")
+        self._record_telemetry(drive_mv=drive_mv)
+
+    def _stop_output(self):
+        # Shared stop/zero for both modes: stop the control loop + force DAC to 0V.
         self.chip.stop_control()
         self.chip.send_command("zero")
+        self._apply_drive_display(0.0)
         if self.chip.is_open():
             self._record_telemetry(target_current_ma=0.0, drive_mv=0.0)
 
@@ -771,9 +968,116 @@ class MainWindow(QMainWindow):
         self.chip.clear_filtered_adc_pending()
         self._append_log("adcf timeout: previous filtered sample request was released")
 
+    def _start_highrate(self):
+        self.chip.stop_stream()
+        # Pause slow status polling: adch blocks the firmware main loop for many
+        # ms per capture, and an interleaved temp poll could overrun the UART.
+        self.status_timer.stop()
+        self._request_high_rate_adc()
+        self.high_rate_timer.start(self.high_rate_period.value())
+
+    def _stop_highrate(self):
+        self.high_rate_timer.stop()
+        self.high_rate_watchdog.stop()
+        self.chip.stop_stream()
+        self._ensure_status_timer()
+
+    def _ensure_status_timer(self):
+        if self.poll_status.isChecked():
+            self.status_timer.start(2000)
+        else:
+            self.status_timer.stop()
+
+    def _request_high_rate_adc(self):
+        if self.chip.is_open():
+            if self.chip.request_high_rate_adc(self.high_rate_count.value()):
+                self.high_rate_watchdog.start(max(5000, self.high_rate_period.value() * 3))
+
+    def _adch_timeout(self):
+        self.chip.clear_high_rate_adc_pending()
+        self._append_log("adch timeout: previous high-rate capture request was released")
+
+    def _on_sample_mode_changed(self, index):
+        # Blocking signals lets us restore the index without re-triggering this handler.
+        new_mode = self.sample_mode_combo.itemData(index)
+        if new_mode is None or new_mode == self.sample_mode:
+            return
+
+        self.sample_mode_combo.blockSignals(True)
+        try:
+            # 1. Stop all sampling (both sides) and clear pending requests.
+            self.adc_filter_timer.stop()
+            self.adc_filter_watchdog.stop()
+            self.high_rate_timer.stop()
+            self.high_rate_watchdog.stop()
+            self.chip.stop_stream()
+
+            # 2. Stop output + zero (defensive; firmware also zeroes on mode switch).
+            self.chip.stop_control()
+            self.chip.send_command("zero")
+            self._apply_drive_display(0.0)
+
+            # 3. Switch the ADC sample mode. Firmware reconfigures the ADC.
+            if new_mode == SAMPLE_MODE_HIGH_RATE:
+                self.chip.send_command("sample mode highrate")
+            else:
+                self.chip.send_command("sample mode precision")
+
+            # 4. Apply local state + per-mode control enablement.
+            self.sample_mode = new_mode
+            self._apply_mode_controls()
+
+            # 5. Drop mixed precision/high-rate data from the trend.
+            self._clear_trend()
+
+            # 6. Resume slow status polling (paused while high-rate streaming).
+            self._ensure_status_timer()
+
+            # 7. Ask the firmware to confirm (response updates the mode info label).
+            self.chip.send_command("sample status")
+            self._append_log(f"切换采样模式 -> {self._mode_label(new_mode)}")
+        finally:
+            self.sample_mode_combo.blockSignals(False)
+
+    def _apply_mode_controls(self):
+        precision = self.sample_mode == SAMPLE_MODE_PRECISION
+        # Precision-only (closed-loop current + filtered sampling + its stop/zero).
+        self.current_ma.setEnabled(precision)
+        self.set_current.setEnabled(precision)
+        self.stop_current.setEnabled(precision)
+        self.filter_period.setEnabled(precision)
+        self.start_stream.setEnabled(precision)
+        self.stop_stream.setEnabled(precision)
+        # High-rate-only (open-loop drive + high-rate sampling + its stop/zero).
+        self.drive_mv.setEnabled(not precision)
+        self.set_drive.setEnabled(not precision)
+        self.stop_drive.setEnabled(not precision)
+        self.high_rate_period.setEnabled(not precision)
+        self.high_rate_count.setEnabled(not precision)
+        self.start_highrate.setEnabled(not precision)
+        self.stop_highrate.setEnabled(not precision)
+        self._refresh_mode_info()
+
+    @staticmethod
+    def _mode_label(mode):
+        return "高速模式" if mode == SAMPLE_MODE_HIGH_RATE else "精密模式"
+
+    def _refresh_mode_info(self, rate_hz=None):
+        if self.sample_mode == SAMPLE_MODE_HIGH_RATE:
+            if rate_hz is None:
+                rate_hz = self.chip._adch_last_rate_hz
+            if rate_hz:
+                self.mode_info_label.setText(f"高速模式  采样率 {rate_hz} Hz")
+            else:
+                self.mode_info_label.setText("高速模式  采样率 --")
+        else:
+            self.mode_info_label.setText("精密模式  滤波 α=0.25")
+
     def _poll_chip_status(self):
         if self.poll_status.isChecked() and self.chip.is_open():
-            self.chip.request_status()
+            # tc status reflects the (off) control loop; only meaningful in precision mode.
+            if self.sample_mode == SAMPLE_MODE_PRECISION:
+                self.chip.request_status()
             self.chip.request_temperature()
 
     @Slot(str)
@@ -836,6 +1140,62 @@ class MainWindow(QMainWindow):
             voltage_mv=sample.voltage_uv / 1000.0,
             resistance_ohm=sample.resistance_uohm / 1_000_000.0,
         )
+
+    @Slot(object)
+    def _update_high_rate_sample(self, sample):
+        current_ma = sample.current_na / 1_000_000.0
+        voltage_mv = sample.voltage_uv / 1000.0
+        self.current_label.setText(f"{current_ma:.6f} mA  ({sample.current_na} nA)")
+        self.voltage_label.setText(f"{voltage_mv:.3f} mV  ({sample.voltage_uv} uV)")
+        if sample.current_na != 0:
+            resistance_ohm = sample.voltage_uv / sample.current_na * 1000.0
+            self.resistance_label.setText(f"{resistance_ohm:.6f} ohm")
+        else:
+            resistance_ohm = None
+            self.resistance_label.setText("--")
+        self.adc_status_label.setText(
+            f"current=0x{sample.current_adc_status:02X}, voltage=0x{sample.voltage_adc_status:02X}"
+        )
+        # Feed the trend directly with a fresh dict + firmware timestamp, bypassing
+        # the shared telemetry_values accumulator (which would mix in stale
+        # precision/temp values at high rate).
+        self.trend_plot.add_sample(
+            {
+                "current_ma": current_ma,
+                "voltage_mv": voltage_mv,
+                "resistance_ohm": resistance_ohm,
+            },
+            timestamp=sample.t_monotonic,
+        )
+
+    @Slot(dict)
+    def _update_high_rate_info(self, info):
+        self.adc_filter_watchdog.stop()
+        self.high_rate_watchdog.stop()
+        rate_hz = info.get("rate_hz")
+        if rate_hz:
+            self._append_log(
+                f"adch burst: count={info.get('count')} rate={rate_hz} Hz "
+                f"avg_period={info.get('avg_period_us')} us"
+            )
+        self._refresh_mode_info(rate_hz)
+
+    @Slot(str, int)
+    def _update_sample_mode(self, mode_text, filter_word):
+        normalized = SAMPLE_MODE_HIGH_RATE if mode_text.upper().startswith("HIGH") else SAMPLE_MODE_PRECISION
+        self._append_log(f"固件采样模式: {mode_text} filter_word={filter_word}")
+        if normalized != self.sample_mode:
+            # Firmware mode drifted from the dropdown (e.g. tc current forced precision).
+            # Sync the dropdown silently to reflect reality.
+            self.sample_mode = normalized
+            self.sample_mode_combo.blockSignals(True)
+            target_index = self.sample_mode_combo.findData(normalized)
+            if target_index >= 0:
+                self.sample_mode_combo.setCurrentIndex(target_index)
+            self.sample_mode_combo.blockSignals(False)
+            self._apply_mode_controls()
+        else:
+            self._refresh_mode_info()
 
     @Slot(dict)
     def _update_control_status(self, values):

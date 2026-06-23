@@ -176,6 +176,32 @@ static void App_ProcessDebugLine(const char *line)
                      ThermalControl_StatusText(control_status));
     App_ResetAdcFilter();
   }
+  else if (strncmp(line, "drive ", 6u) == 0)
+  {
+    float target_mv = 0.0f;
+    ThermalControl_Status control_status;
+    BoardOutput_Status output_status;
+
+    if (App_ParseFloat(&line[6], &target_mv) == 0u)
+    {
+      BoardUart_WriteString(BOARD_UART_PORT_DEBUG,
+                            "Bad argument. Usage: drive <mV 0-500>\r\n",
+                            100u);
+      return;
+    }
+
+    /* Open-loop drive: stop the closed-loop controller so it cannot fight the
+     * DAC, then set the drive voltage directly. Mode-agnostic (no ADC feedback). */
+    control_status = ThermalControl_Stop();
+    output_status = BoardOutput_SetDriveVoltage(target_mv / 1000.0f);
+    App_ResetAdcFilter();
+    BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                     "drive: %.1f mV, output=%s (%d), control=%s\r\n",
+                     (double)target_mv,
+                     BoardOutput_StatusText(output_status),
+                     (int)output_status,
+                     ThermalControl_StatusText(control_status));
+  }
   else if (strcmp(line, "r42test") == 0)
   {
     BoardOutput_R42SelfTestResult result;
@@ -366,6 +392,7 @@ static void App_PrintHelp(void)
                         "  help     - show this help\r\n"
                         "  id       - read AD7190 IDs\r\n"
                         "  zero     - force DAC outputs to 0V\r\n"
+                        "  drive <mV> - open-loop DAC drive voltage (0-500 mV)\r\n"
                         "  r42test  - run safe internal 30-ohm self-test\r\n"
                         "  temp     - read board/external temperature\r\n"
                         "  rs485 tx - send a test line on CN4 RS485\r\n"
