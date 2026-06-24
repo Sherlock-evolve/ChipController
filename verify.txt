@@ -1,0 +1,663 @@
+精确电阻 150.007 Ohm
+
+tc current 0.5
+ThermalControl current target: 500 uA, status=OK (0)
+tc status
+TC: mode=CURRENT enabled=1 fault=0 status=OK (0)
+TC target: temp=0 mC error=0 mC current=500 uA integral=0 uA drive=5 mV
+TC measured: temp=0 mC current=501 uA voltage=75 mV power=38 uW R=150039 mOhm
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=497419 nA V=74634 uV R=150041696 uOhm status current=0x00 voltage=0x00
+adcf 2: I=497475 nA V=74641 uV R=150039248 uOhm status current=0x00 voltage=0x00
+adcf 3: I=497508 nA V=74648 uV R=150043248 uOhm status current=0x00 voltage=0x00
+adcf 4: I=497532 nA V=74654 uV R=150048048 uOhm status current=0x00 voltage=0x00
+adcf 5: I=497560 nA V=74658 uV R=150049104 uOhm status current=0x00 voltage=0x00
+adcf 6: I=497516 nA V=74652 uV R=150050064 uOhm status current=0x00 voltage=0x00
+adcf 7: I=497538 nA V=74655 uV R=150048320 uOhm status current=0x00 voltage=0x00
+adcf 8: I=497518 nA V=74653 uV R=150051376 uOhm status current=0x00 voltage=0x00
+adcf 9: I=497484 nA V=74653 uV R=150060176 uOhm status current=0x00 voltage=0x00
+adcf 10: I=497477 nA V=74652 uV R=150061168 uOhm status current=0x00 voltage=0x00
+adcf 11: I=497528 nA V=74657 uV R=150054944 uOhm status current=0x00 voltage=0x00
+adcf 12: I=497501 nA V=74658 uV R=150066976 uOhm status current=0x00 voltage=0x00
+adcf 13: I=497481 nA V=74652 uV R=150060928 uOhm status current=0x00 voltage=0x00
+adcf 14: I=497484 nA V=74655 uV R=150065536 uOhm status current=0x00 voltage=0x00
+adcf 15: I=497524 nA V=74659 uV R=150061936 uOhm status current=0x00 voltage=0x00
+adcf 16: I=497582 nA V=74662 uV R=150049584 uOhm status current=0x00 voltage=0x00
+adcf 17: I=497550 nA V=74662 uV R=150059520 uOhm status current=0x00 voltage=0x00
+adcf 18: I=497574 nA V=74666 uV R=150060144 uOhm status current=0x00 voltage=0x00
+adcf 19: I=497572 nA V=74670 uV R=150068624 uOhm status current=0x00 voltage=0x00
+adcf 20: I=497599 nA V=74675 uV R=150069840 uOhm status current=0x00 voltage=0x00
+
+tc current 1
+ThermalControl current target: 1000 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=999710 nA V=149992 uV R=150035072 uOhm status current=0x00 voltage=0x00
+adcf 2: I=999729 nA V=149992 uV R=150033008 uOhm status current=0x00 voltage=0x00
+adcf 3: I=999761 nA V=149993 uV R=150028528 uOhm status current=0x00 voltage=0x00
+adcf 4: I=999786 nA V=149996 uV R=150028016 uOhm status current=0x00 voltage=0x00
+adcf 5: I=999758 nA V=149994 uV R=150030560 uOhm status current=0x00 voltage=0x00
+adcf 6: I=999736 nA V=149992 uV R=150031456 uOhm status current=0x00 voltage=0x00
+adcf 7: I=999749 nA V=149991 uV R=150028816 uOhm status current=0x00 voltage=0x00
+adcf 8: I=999748 nA V=149989 uV R=150026864 uOhm status current=0x00 voltage=0x00
+adcf 9: I=999739 nA V=149988 uV R=150027568 uOhm status current=0x00 voltage=0x00
+adcf 10: I=999722 nA V=149986 uV R=150028016 uOhm status current=0x00 voltage=0x00
+adcf 11: I=999719 nA V=149989 uV R=150030816 uOhm status current=0x00 voltage=0x00
+adcf 12: I=999717 nA V=149991 uV R=150033088 uOhm status current=0x00 voltage=0x00
+adcf 13: I=999752 nA V=149995 uV R=150032608 uOhm status current=0x00 voltage=0x00
+adcf 14: I=999770 nA V=150001 uV R=150035152 uOhm status current=0x00 voltage=0x00
+adcf 15: I=999746 nA V=149997 uV R=150035632 uOhm status current=0x00 voltage=0x00
+adcf 16: I=999746 nA V=149997 uV R=150034688 uOhm status current=0x00 voltage=0x00
+adcf 17: I=999765 nA V=150001 uV R=150036560 uOhm status current=0x00 voltage=0x00
+adcf 18: I=999779 nA V=150004 uV R=150037520 uOhm status current=0x00 voltage=0x00
+adcf 19: I=999762 nA V=150007 uV R=150043184 uOhm status current=0x00 voltage=0x00
+adcf 20: I=999740 nA V=150005 uV R=150044048 uOhm status current=0x00 voltage=0x00
+
+tc current 1.5
+ThermalControl current target: 1500 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=1497675 nA V=224678 uV R=150017760 uOhm status current=0x00 voltage=0x00
+adcf 2: I=1497647 nA V=224672 uV R=150016880 uOhm status current=0x00 voltage=0x00
+adcf 3: I=1497673 nA V=224676 uV R=150016432 uOhm status current=0x00 voltage=0x00
+adcf 4: I=1497711 nA V=224681 uV R=150016240 uOhm status current=0x00 voltage=0x00
+adcf 5: I=1497674 nA V=224675 uV R=150016000 uOhm status current=0x00 voltage=0x00
+adcf 6: I=1497656 nA V=224674 uV R=150017024 uOhm status current=0x00 voltage=0x00
+adcf 7: I=1497633 nA V=224673 uV R=150018608 uOhm status current=0x00 voltage=0x00
+adcf 8: I=1497606 nA V=224672 uV R=150020544 uOhm status current=0x00 voltage=0x00
+adcf 9: I=1497558 nA V=224670 uV R=150024384 uOhm status current=0x00 voltage=0x00
+adcf 10: I=1497513 nA V=224667 uV R=150026512 uOhm status current=0x00 voltage=0x00
+adcf 11: I=1497554 nA V=224669 uV R=150024032 uOhm status current=0x00 voltage=0x00
+adcf 12: I=1497603 nA V=224675 uV R=150023200 uOhm status current=0x00 voltage=0x00
+adcf 13: I=1497556 nA V=224670 uV R=150024784 uOhm status current=0x00 voltage=0x00
+adcf 14: I=1497614 nA V=224674 uV R=150021424 uOhm status current=0x00 voltage=0x00
+adcf 15: I=1497592 nA V=224676 uV R=150024544 uOhm status current=0x00 voltage=0x00
+adcf 16: I=1497603 nA V=224676 uV R=150023680 uOhm status current=0x00 voltage=0x00
+adcf 17: I=1497621 nA V=224676 uV R=150022000 uOhm status current=0x00 voltage=0x00
+adcf 18: I=1497626 nA V=224679 uV R=150023376 uOhm status current=0x00 voltage=0x00
+adcf 19: I=1497619 nA V=224676 uV R=150022336 uOhm status current=0x00 voltage=0x00
+adcf 20: I=1497605 nA V=224673 uV R=150021408 uOhm status current=0x00 voltage=0x00
+
+tc current 2
+ThermalControl current target: 2000 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=2001271 nA V=300197 uV R=150003328 uOhm status current=0x00 voltage=0x00
+adcf 2: I=2001243 nA V=300195 uV R=150004240 uOhm status current=0x00 voltage=0x00
+adcf 3: I=2001185 nA V=300192 uV R=150007024 uOhm status current=0x00 voltage=0x00
+adcf 4: I=2001197 nA V=300201 uV R=150010512 uOhm status current=0x00 voltage=0x00
+adcf 5: I=2001206 nA V=300204 uV R=150011744 uOhm status current=0x00 voltage=0x00
+adcf 6: I=2001222 nA V=300209 uV R=150012784 uOhm status current=0x00 voltage=0x00
+adcf 7: I=2001216 nA V=300210 uV R=150013760 uOhm status current=0x00 voltage=0x00
+adcf 8: I=2001183 nA V=300207 uV R=150014576 uOhm status current=0x00 voltage=0x00
+adcf 9: I=2001186 nA V=300210 uV R=150015776 uOhm status current=0x00 voltage=0x00
+adcf 10: I=2001189 nA V=300208 uV R=150015024 uOhm status current=0x00 voltage=0x00
+adcf 11: I=2001163 nA V=300204 uV R=150014992 uOhm status current=0x00 voltage=0x00
+adcf 12: I=2001125 nA V=300204 uV R=150017712 uOhm status current=0x00 voltage=0x00
+adcf 13: I=2001087 nA V=300200 uV R=150018592 uOhm status current=0x00 voltage=0x00
+adcf 14: I=2001105 nA V=300201 uV R=150017760 uOhm status current=0x00 voltage=0x00
+adcf 15: I=2001109 nA V=300201 uV R=150017472 uOhm status current=0x00 voltage=0x00
+adcf 16: I=2001140 nA V=300203 uV R=150015744 uOhm status current=0x00 voltage=0x00
+adcf 17: I=2001164 nA V=300207 uV R=150016416 uOhm status current=0x00 voltage=0x00
+adcf 18: I=2001116 nA V=300205 uV R=150018896 uOhm status current=0x00 voltage=0x00
+adcf 19: I=2001127 nA V=300209 uV R=150020080 uOhm status current=0x00 voltage=0x00
+adcf 20: I=2001144 nA V=300212 uV R=150019968 uOhm status current=0x00 voltage=0x00
+
+tc current 2.5
+ThermalControl current target: 2500 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=2497857 nA V=374693 uV R=150005760 uOhm status current=0x00 voltage=0x00
+adcf 2: I=2497866 nA V=374696 uV R=150006352 uOhm status current=0x00 voltage=0x00
+adcf 3: I=2497891 nA V=374702 uV R=150007216 uOhm status current=0x00 voltage=0x00
+adcf 4: I=2497901 nA V=374706 uV R=150008320 uOhm status current=0x00 voltage=0x00
+adcf 5: I=2497891 nA V=374709 uV R=150010176 uOhm status current=0x00 voltage=0x00
+adcf 6: I=2497854 nA V=374707 uV R=150011600 uOhm status current=0x00 voltage=0x00
+adcf 7: I=2497790 nA V=374702 uV R=150013440 uOhm status current=0x00 voltage=0x00
+adcf 8: I=2497806 nA V=374705 uV R=150013632 uOhm status current=0x00 voltage=0x00
+adcf 9: I=2497782 nA V=374702 uV R=150013776 uOhm status current=0x00 voltage=0x00
+adcf 10: I=2497754 nA V=374697 uV R=150013504 uOhm status current=0x00 voltage=0x00
+adcf 11: I=2497779 nA V=374701 uV R=150013728 uOhm status current=0x00 voltage=0x00
+adcf 12: I=2497761 nA V=374700 uV R=150014272 uOhm status current=0x00 voltage=0x00
+adcf 13: I=2497757 nA V=374701 uV R=150015008 uOhm status current=0x00 voltage=0x00
+adcf 14: I=2497735 nA V=374702 uV R=150016880 uOhm status current=0x00 voltage=0x00
+adcf 15: I=2497785 nA V=374705 uV R=150015120 uOhm status current=0x00 voltage=0x00
+adcf 16: I=2497784 nA V=374705 uV R=150015024 uOhm status current=0x00 voltage=0x00
+adcf 17: I=2497765 nA V=374702 uV R=150015008 uOhm status current=0x00 voltage=0x00
+adcf 18: I=2497760 nA V=374705 uV R=150016608 uOhm status current=0x00 voltage=0x00
+adcf 19: I=2497682 nA V=374694 uV R=150016816 uOhm status current=0x00 voltage=0x00
+adcf 20: I=2497632 nA V=374689 uV R=150017664 uOhm status current=0x00 voltage=0x00
+
+tc current 3
+ThermalControl current target: 3000 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=3001676 nA V=450286 uV R=150011680 uOhm status current=0x00 voltage=0x00
+adcf 2: I=3001713 nA V=450289 uV R=150010752 uOhm status current=0x00 voltage=0x00
+adcf 3: I=3001778 nA V=450293 uV R=150008704 uOhm status current=0x00 voltage=0x00
+adcf 4: I=3001781 nA V=450296 uV R=150009536 uOhm status current=0x00 voltage=0x00
+adcf 5: I=3001745 nA V=450290 uV R=150009392 uOhm status current=0x00 voltage=0x00
+adcf 6: I=3001719 nA V=450288 uV R=150009968 uOhm status current=0x00 voltage=0x00
+adcf 7: I=3001745 nA V=450290 uV R=150009424 uOhm status current=0x00 voltage=0x00
+adcf 8: I=3001766 nA V=450293 uV R=150009360 uOhm status current=0x00 voltage=0x00
+adcf 9: I=3001743 nA V=450294 uV R=150010720 uOhm status current=0x00 voltage=0x00
+adcf 10: I=3001764 nA V=450299 uV R=150011600 uOhm status current=0x00 voltage=0x00
+adcf 11: I=3001788 nA V=450307 uV R=150013008 uOhm status current=0x00 voltage=0x00
+adcf 12: I=3001816 nA V=450312 uV R=150013072 uOhm status current=0x00 voltage=0x00
+adcf 13: I=3001818 nA V=450315 uV R=150013952 uOhm status current=0x00 voltage=0x00
+adcf 14: I=3001811 nA V=450312 uV R=150013472 uOhm status current=0x00 voltage=0x00
+adcf 15: I=3001824 nA V=450311 uV R=150012480 uOhm status current=0x00 voltage=0x00
+adcf 16: I=3001806 nA V=450309 uV R=150012784 uOhm status current=0x00 voltage=0x00
+adcf 17: I=3001782 nA V=450307 uV R=150013184 uOhm status current=0x00 voltage=0x00
+adcf 18: I=3001775 nA V=450306 uV R=150013168 uOhm status current=0x00 voltage=0x00
+adcf 19: I=3001731 nA V=450303 uV R=150014384 uOhm status current=0x00 voltage=0x00
+adcf 20: I=3001699 nA V=450300 uV R=150014928 uOhm status current=0x00 voltage=0x00
+
+tc current 3.5
+ThermalControl current target: 3500 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=3499567 nA V=524952 uV R=150004800 uOhm status current=0x00 voltage=0x00
+adcf 2: I=3499585 nA V=524956 uV R=150005200 uOhm status current=0x00 voltage=0x00
+adcf 3: I=3499609 nA V=524960 uV R=150005408 uOhm status current=0x00 voltage=0x00
+adcf 4: I=3499617 nA V=524967 uV R=150007024 uOhm status current=0x00 voltage=0x00
+adcf 5: I=3499623 nA V=524974 uV R=150008784 uOhm status current=0x00 voltage=0x00
+adcf 6: I=3499609 nA V=524970 uV R=150008176 uOhm status current=0x00 voltage=0x00
+adcf 7: I=3499589 nA V=524968 uV R=150008416 uOhm status current=0x00 voltage=0x00
+adcf 8: I=3499565 nA V=524966 uV R=150008816 uOhm status current=0x00 voltage=0x00
+adcf 9: I=3499565 nA V=524967 uV R=150009088 uOhm status current=0x00 voltage=0x00
+adcf 10: I=3499622 nA V=524974 uV R=150008912 uOhm status current=0x00 voltage=0x00
+adcf 11: I=3499617 nA V=524973 uV R=150008608 uOhm status current=0x00 voltage=0x00
+adcf 12: I=3499586 nA V=524974 uV R=150010208 uOhm status current=0x00 voltage=0x00
+adcf 13: I=3499563 nA V=524971 uV R=150010432 uOhm status current=0x00 voltage=0x00
+adcf 14: I=3499554 nA V=524973 uV R=150011408 uOhm status current=0x00 voltage=0x00
+adcf 15: I=3499511 nA V=524970 uV R=150012528 uOhm status current=0x00 voltage=0x00
+adcf 16: I=3499487 nA V=524971 uV R=150013568 uOhm status current=0x00 voltage=0x00
+adcf 17: I=3499451 nA V=524965 uV R=150013440 uOhm status current=0x00 voltage=0x00
+adcf 18: I=3499452 nA V=524961 uV R=150012224 uOhm status current=0x00 voltage=0x00
+adcf 19: I=3499472 nA V=524963 uV R=150012048 uOhm status current=0x00 voltage=0x00
+adcf 20: I=3499458 nA V=524963 uV R=150012784 uOhm status current=0x00 voltage=0x00
+
+tc current 4
+ThermalControl current target: 4000 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=3999769 nA V=599996 uV R=150007600 uOhm status current=0x00 voltage=0x00
+adcf 2: I=3999760 nA V=599996 uV R=150008000 uOhm status current=0x00 voltage=0x00
+adcf 3: I=3999772 nA V=599998 uV R=150008000 uOhm status current=0x00 voltage=0x00
+adcf 4: I=3999790 nA V=600003 uV R=150008576 uOhm status current=0x00 voltage=0x00
+adcf 5: I=3999794 nA V=600004 uV R=150008656 uOhm status current=0x00 voltage=0x00
+adcf 6: I=3999760 nA V=600001 uV R=150009152 uOhm status current=0x00 voltage=0x00
+adcf 7: I=3999743 nA V=600002 uV R=150010064 uOhm status current=0x00 voltage=0x00
+adcf 8: I=3999740 nA V=599999 uV R=150009584 uOhm status current=0x00 voltage=0x00
+adcf 9: I=3999710 nA V=599995 uV R=150009600 uOhm status current=0x00 voltage=0x00
+adcf 10: I=3999735 nA V=599999 uV R=150009680 uOhm status current=0x00 voltage=0x00
+adcf 11: I=3999743 nA V=600004 uV R=150010496 uOhm status current=0x00 voltage=0x00
+adcf 12: I=3999750 nA V=600006 uV R=150010896 uOhm status current=0x00 voltage=0x00
+adcf 13: I=3999755 nA V=600006 uV R=150010672 uOhm status current=0x00 voltage=0x00
+adcf 14: I=3999749 nA V=600008 uV R=150011296 uOhm status current=0x00 voltage=0x00
+adcf 15: I=3999764 nA V=600011 uV R=150011616 uOhm status current=0x00 voltage=0x00
+adcf 16: I=3999756 nA V=600007 uV R=150011040 uOhm status current=0x00 voltage=0x00
+adcf 17: I=3999787 nA V=600014 uV R=150011360 uOhm status current=0x00 voltage=0x00
+adcf 18: I=3999792 nA V=600014 uV R=150011296 uOhm status current=0x00 voltage=0x00
+adcf 19: I=3999824 nA V=600020 uV R=150011664 uOhm status current=0x00 voltage=0x00
+adcf 20: I=3999810 nA V=600017 uV R=150011264 uOhm status current=0x00 voltage=0x00
+
+tc current 4.5
+ThermalControl current target: 4500 uA, status=OK (0)
+tc status
+TC: mode=CURRENT enabled=1 fault=0 status=OK (0)
+TC target: temp=0 mC error=0 mC current=4500 uA integral=0 uA drive=95 mV
+TC measured: temp=0 mC current=4477 uA voltage=672 mV power=3007 uW R=150006 mOhm
+tc status
+TC: mode=CURRENT enabled=1 fault=0 status=OK (0)
+TC target: temp=0 mC error=0 mC current=4500 uA integral=0 uA drive=96 mV
+TC measured: temp=0 mC current=4500 uA voltage=675 mV power=3038 uW R=150007 mOhm
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=4496914 nA V=674578 uV R=150009104 uOhm status current=0x00 voltage=0x00
+adcf 2: I=4496933 nA V=674581 uV R=150009088 uOhm status current=0x00 voltage=0x00
+adcf 3: I=4496993 nA V=674589 uV R=150008848 uOhm status current=0x00 voltage=0x00
+adcf 4: I=4497048 nA V=674594 uV R=150008240 uOhm status current=0x00 voltage=0x00
+adcf 5: I=4497061 nA V=674594 uV R=150007840 uOhm status current=0x00 voltage=0x00
+adcf 6: I=4497146 nA V=674607 uV R=150007744 uOhm status current=0x00 voltage=0x00
+adcf 7: I=4497135 nA V=674603 uV R=150007360 uOhm status current=0x00 voltage=0x00
+adcf 8: I=4497126 nA V=674605 uV R=150008096 uOhm status current=0x00 voltage=0x00
+adcf 9: I=4497156 nA V=674607 uV R=150007360 uOhm status current=0x00 voltage=0x00
+adcf 10: I=4497161 nA V=674611 uV R=150008064 uOhm status current=0x00 voltage=0x00
+adcf 11: I=4497146 nA V=674611 uV R=150008752 uOhm status current=0x00 voltage=0x00
+adcf 12: I=4497126 nA V=674612 uV R=150009632 uOhm status current=0x00 voltage=0x00
+adcf 13: I=4497147 nA V=674617 uV R=150009888 uOhm status current=0x00 voltage=0x00
+adcf 14: I=4497145 nA V=674616 uV R=150009920 uOhm status current=0x00 voltage=0x00
+adcf 15: I=4497180 nA V=674622 uV R=150010016 uOhm status current=0x00 voltage=0x00
+adcf 16: I=4497170 nA V=674621 uV R=150010048 uOhm status current=0x00 voltage=0x00
+adcf 17: I=4497171 nA V=674623 uV R=150010464 uOhm status current=0x00 voltage=0x00
+adcf 18: I=4497172 nA V=674623 uV R=150010512 uOhm status current=0x00 voltage=0x00
+adcf 19: I=4497126 nA V=674621 uV R=150011648 uOhm status current=0x00 voltage=0x00
+adcf 20: I=4497119 nA V=674621 uV R=150011792 uOhm status current=0x00 voltage=0x00
+
+tc current 5
+ThermalControl current target: 5000 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=4999764 nA V=750005 uV R=150008160 uOhm status current=0x00 voltage=0x00
+adcf 2: I=4999745 nA V=750001 uV R=150007824 uOhm status current=0x00 voltage=0x00
+adcf 3: I=4999741 nA V=750000 uV R=150007856 uOhm status current=0x00 voltage=0x00
+adcf 4: I=4999738 nA V=750000 uV R=150007968 uOhm status current=0x00 voltage=0x00
+adcf 5: I=4999791 nA V=750005 uV R=150007312 uOhm status current=0x00 voltage=0x00
+adcf 6: I=4999756 nA V=749999 uV R=150007024 uOhm status current=0x00 voltage=0x00
+adcf 7: I=4999767 nA V=749997 uV R=150006448 uOhm status current=0x00 voltage=0x00
+adcf 8: I=4999785 nA V=750003 uV R=150006960 uOhm status current=0x00 voltage=0x00
+adcf 9: I=4999771 nA V=750003 uV R=150007440 uOhm status current=0x00 voltage=0x00
+adcf 10: I=4999741 nA V=750003 uV R=150008400 uOhm status current=0x00 voltage=0x00
+adcf 11: I=4999719 nA V=750003 uV R=150009072 uOhm status current=0x00 voltage=0x00
+adcf 12: I=4999730 nA V=750007 uV R=150009568 uOhm status current=0x00 voltage=0x00
+adcf 13: I=4999766 nA V=750010 uV R=150009040 uOhm status current=0x00 voltage=0x00
+adcf 14: I=4999757 nA V=750013 uV R=150009840 uOhm status current=0x00 voltage=0x00
+adcf 15: I=4999768 nA V=750021 uV R=150011232 uOhm status current=0x00 voltage=0x00
+adcf 16: I=4999795 nA V=750024 uV R=150010880 uOhm status current=0x00 voltage=0x00
+adcf 17: I=4999787 nA V=750020 uV R=150010336 uOhm status current=0x00 voltage=0x00
+adcf 18: I=4999819 nA V=750023 uV R=150009984 uOhm status current=0x00 voltage=0x00
+adcf 19: I=4999880 nA V=750028 uV R=150009296 uOhm status current=0x00 voltage=0x00
+adcf 20: I=4999925 nA V=750039 uV R=150009984 uOhm status current=0x00 voltage=0x00
+
+tc current 5.5
+ThermalControl current target: 5500 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=5498512 nA V=824822 uV R=150008112 uOhm status current=0x00 voltage=0x00
+adcf 2: I=5498587 nA V=824828 uV R=150007280 uOhm status current=0x00 voltage=0x00
+adcf 3: I=5498587 nA V=824827 uV R=150007152 uOhm status current=0x00 voltage=0x00
+adcf 4: I=5498596 nA V=824831 uV R=150007552 uOhm status current=0x00 voltage=0x00
+adcf 5: I=5498650 nA V=824835 uV R=150006768 uOhm status current=0x00 voltage=0x00
+adcf 6: I=5498690 nA V=824842 uV R=150006992 uOhm status current=0x00 voltage=0x00
+adcf 7: I=5498636 nA V=824836 uV R=150007328 uOhm status current=0x00 voltage=0x00
+adcf 8: I=5498661 nA V=824839 uV R=150007296 uOhm status current=0x00 voltage=0x00
+adcf 9: I=5498661 nA V=824842 uV R=150007808 uOhm status current=0x00 voltage=0x00
+adcf 10: I=5498661 nA V=824842 uV R=150007728 uOhm status current=0x00 voltage=0x00
+adcf 11: I=5498652 nA V=824838 uV R=150007392 uOhm status current=0x00 voltage=0x00
+adcf 12: I=5498626 nA V=824837 uV R=150007744 uOhm status current=0x00 voltage=0x00
+adcf 13: I=5498607 nA V=824834 uV R=150007888 uOhm status current=0x00 voltage=0x00
+adcf 14: I=5498574 nA V=824829 uV R=150007856 uOhm status current=0x00 voltage=0x00
+adcf 15: I=5498493 nA V=824822 uV R=150008720 uOhm status current=0x00 voltage=0x00
+adcf 16: I=5498479 nA V=824819 uV R=150008480 uOhm status current=0x00 voltage=0x00
+adcf 17: I=5498497 nA V=824824 uV R=150008976 uOhm status current=0x00 voltage=0x00
+adcf 18: I=5498482 nA V=824824 uV R=150009488 uOhm status current=0x00 voltage=0x00
+adcf 19: I=5498443 nA V=824821 uV R=150009920 uOhm status current=0x00 voltage=0x00
+adcf 20: I=5498395 nA V=824818 uV R=150010672 uOhm status current=0x00 voltage=0x00
+
+tc current 6
+ThermalControl current target: 6000 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=6002854 nA V=900435 uV R=150001120 uOhm status current=0x00 voltage=0x00
+adcf 2: I=6002798 nA V=900437 uV R=150002848 uOhm status current=0x00 voltage=0x00
+adcf 3: I=6002775 nA V=900441 uV R=150004112 uOhm status current=0x00 voltage=0x00
+adcf 4: I=6002822 nA V=900448 uV R=150004128 uOhm status current=0x00 voltage=0x00
+adcf 5: I=6002802 nA V=900451 uV R=150005120 uOhm status current=0x00 voltage=0x00
+adcf 6: I=6002787 nA V=900452 uV R=150005568 uOhm status current=0x00 voltage=0x00
+adcf 7: I=6002710 nA V=900444 uV R=150006192 uOhm status current=0x00 voltage=0x00
+adcf 8: I=6002690 nA V=900441 uV R=150006240 uOhm status current=0x00 voltage=0x00
+adcf 9: I=6002684 nA V=900440 uV R=150006256 uOhm status current=0x00 voltage=0x00
+adcf 10: I=6002671 nA V=900440 uV R=150006624 uOhm status current=0x00 voltage=0x00
+adcf 11: I=6002698 nA V=900448 uV R=150007136 uOhm status current=0x00 voltage=0x00
+adcf 12: I=6002709 nA V=900450 uV R=150007328 uOhm status current=0x00 voltage=0x00
+adcf 13: I=6002755 nA V=900456 uV R=150007104 uOhm status current=0x00 voltage=0x00
+adcf 14: I=6002705 nA V=900452 uV R=150007728 uOhm status current=0x00 voltage=0x00
+adcf 15: I=6002677 nA V=900449 uV R=150007824 uOhm status current=0x00 voltage=0x00
+adcf 16: I=6002693 nA V=900450 uV R=150007680 uOhm status current=0x00 voltage=0x00
+adcf 17: I=6002677 nA V=900449 uV R=150007952 uOhm status current=0x00 voltage=0x00
+adcf 18: I=6002656 nA V=900451 uV R=150008784 uOhm status current=0x00 voltage=0x00
+adcf 19: I=6002650 nA V=900452 uV R=150009088 uOhm status current=0x00 voltage=0x00
+adcf 20: I=6002673 nA V=900455 uV R=150009008 uOhm status current=0x00 voltage=0x00
+
+tc current 6.5
+ThermalControl current target: 6500 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=6500334 nA V=975073 uV R=150003568 uOhm status current=0x00 voltage=0x00
+adcf 2: I=6500316 nA V=975075 uV R=150004208 uOhm status current=0x00 voltage=0x00
+adcf 3: I=6500330 nA V=975078 uV R=150004384 uOhm status current=0x00 voltage=0x00
+adcf 4: I=6500322 nA V=975078 uV R=150004640 uOhm status current=0x00 voltage=0x00
+adcf 5: I=6500344 nA V=975083 uV R=150004896 uOhm status current=0x00 voltage=0x00
+adcf 6: I=6500332 nA V=975082 uV R=150005024 uOhm status current=0x00 voltage=0x00
+adcf 7: I=6500323 nA V=975083 uV R=150005296 uOhm status current=0x00 voltage=0x00
+adcf 8: I=6500363 nA V=975085 uV R=150004752 uOhm status current=0x00 voltage=0x00
+adcf 9: I=6500356 nA V=975089 uV R=150005408 uOhm status current=0x00 voltage=0x00
+adcf 10: I=6500379 nA V=975094 uV R=150005696 uOhm status current=0x00 voltage=0x00
+adcf 11: I=6500395 nA V=975099 uV R=150006144 uOhm status current=0x00 voltage=0x00
+adcf 12: I=6500408 nA V=975102 uV R=150006288 uOhm status current=0x00 voltage=0x00
+adcf 13: I=6500390 nA V=975102 uV R=150006720 uOhm status current=0x00 voltage=0x00
+adcf 14: I=6500348 nA V=975099 uV R=150007232 uOhm status current=0x00 voltage=0x00
+adcf 15: I=6500354 nA V=975101 uV R=150007312 uOhm status current=0x00 voltage=0x00
+adcf 16: I=6500330 nA V=975100 uV R=150007824 uOhm status current=0x00 voltage=0x00
+adcf 17: I=6500303 nA V=975097 uV R=150007936 uOhm status current=0x00 voltage=0x00
+adcf 18: I=6500302 nA V=975096 uV R=150007744 uOhm status current=0x00 voltage=0x00
+adcf 19: I=6500244 nA V=975092 uV R=150008528 uOhm status current=0x00 voltage=0x00
+adcf 20: I=6500248 nA V=975094 uV R=150008672 uOhm status current=0x00 voltage=0x00
+
+tc current 7
+ThermalControl current target: 7000 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=6999083 nA V=1049913 uV R=150007184 uOhm status current=0x00 voltage=0x00
+adcf 2: I=6999073 nA V=1049909 uV R=150006896 uOhm status current=0x00 voltage=0x00
+adcf 3: I=6999122 nA V=1049913 uV R=150006304 uOhm status current=0x00 voltage=0x00
+adcf 4: I=6999131 nA V=1049915 uV R=150006528 uOhm status current=0x00 voltage=0x00
+adcf 5: I=6999184 nA V=1049921 uV R=150006256 uOhm status current=0x00 voltage=0x00
+adcf 6: I=6999186 nA V=1049922 uV R=150006240 uOhm status current=0x00 voltage=0x00
+adcf 7: I=6999198 nA V=1049925 uV R=150006512 uOhm status current=0x00 voltage=0x00
+adcf 8: I=6999216 nA V=1049928 uV R=150006464 uOhm status current=0x00 voltage=0x00
+adcf 9: I=6999219 nA V=1049929 uV R=150006624 uOhm status current=0x00 voltage=0x00
+adcf 10: I=6999186 nA V=1049927 uV R=150007088 uOhm status current=0x00 voltage=0x00
+adcf 11: I=6999178 nA V=1049929 uV R=150007408 uOhm status current=0x00 voltage=0x00
+adcf 12: I=6999192 nA V=1049932 uV R=150007552 uOhm status current=0x00 voltage=0x00
+adcf 13: I=6999202 nA V=1049932 uV R=150007344 uOhm status current=0x00 voltage=0x00
+adcf 14: I=6999237 nA V=1049937 uV R=150007408 uOhm status current=0x00 voltage=0x00
+adcf 15: I=6999217 nA V=1049938 uV R=150007840 uOhm status current=0x00 voltage=0x00
+adcf 16: I=6999230 nA V=1049940 uV R=150007904 uOhm status current=0x00 voltage=0x00
+adcf 17: I=6999184 nA V=1049934 uV R=150008080 uOhm status current=0x00 voltage=0x00
+adcf 18: I=6999158 nA V=1049929 uV R=150007872 uOhm status current=0x00 voltage=0x00
+adcf 19: I=6999167 nA V=1049932 uV R=150008112 uOhm status current=0x00 voltage=0x00
+adcf 20: I=6999165 nA V=1049925 uV R=150007248 uOhm status current=0x00 voltage=0x00
+
+tc current 7.5
+ThermalControl current target: 7500 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=7499173 nA V=1124926 uV R=150006688 uOhm status current=0x00 voltage=0x00
+adcf 2: I=7499192 nA V=1124926 uV R=150006352 uOhm status current=0x00 voltage=0x00
+adcf 3: I=7499187 nA V=1124923 uV R=150006000 uOhm status current=0x00 voltage=0x00
+adcf 4: I=7499147 nA V=1124917 uV R=150006016 uOhm status current=0x00 voltage=0x00
+adcf 5: I=7499153 nA V=1124920 uV R=150006224 uOhm status current=0x00 voltage=0x00
+adcf 6: I=7499186 nA V=1124923 uV R=150006048 uOhm status current=0x00 voltage=0x00
+adcf 7: I=7499220 nA V=1124933 uV R=150006608 uOhm status current=0x00 voltage=0x00
+adcf 8: I=7499255 nA V=1124940 uV R=150006912 uOhm status current=0x00 voltage=0x00
+adcf 9: I=7499235 nA V=1124939 uV R=150007136 uOhm status current=0x00 voltage=0x00
+adcf 10: I=7499266 nA V=1124940 uV R=150006640 uOhm status current=0x00 voltage=0x00
+adcf 11: I=7499233 nA V=1124937 uV R=150006912 uOhm status current=0x00 voltage=0x00
+adcf 12: I=7499228 nA V=1124939 uV R=150007328 uOhm status current=0x00 voltage=0x00
+adcf 13: I=7499205 nA V=1124939 uV R=150007760 uOhm status current=0x00 voltage=0x00
+adcf 14: I=7499197 nA V=1124935 uV R=150007456 uOhm status current=0x00 voltage=0x00
+adcf 15: I=7499200 nA V=1124938 uV R=150007744 uOhm status current=0x00 voltage=0x00
+adcf 16: I=7499212 nA V=1124941 uV R=150007840 uOhm status current=0x00 voltage=0x00
+adcf 17: I=7499220 nA V=1124940 uV R=150007648 uOhm status current=0x00 voltage=0x00
+adcf 18: I=7499246 nA V=1124944 uV R=150007552 uOhm status current=0x00 voltage=0x00
+adcf 19: I=7499238 nA V=1124944 uV R=150007776 uOhm status current=0x00 voltage=0x00
+adcf 20: I=7499230 nA V=1124942 uV R=150007680 uOhm status current=0x00 voltage=0x00
+
+tc current 8
+ThermalControl current target: 8000 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=8002283 nA V=1200388 uV R=150005712 uOhm status current=0x00 voltage=0x00
+adcf 2: I=8002283 nA V=1200388 uV R=150005760 uOhm status current=0x00 voltage=0x00
+adcf 3: I=8002321 nA V=1200394 uV R=150005696 uOhm status current=0x00 voltage=0x00
+adcf 4: I=8002321 nA V=1200399 uV R=150006384 uOhm status current=0x00 voltage=0x00
+adcf 5: I=8002386 nA V=1200402 uV R=150005488 uOhm status current=0x00 voltage=0x00
+adcf 6: I=8002341 nA V=1200399 uV R=150005952 uOhm status current=0x00 voltage=0x00
+adcf 7: I=8002307 nA V=1200397 uV R=150006336 uOhm status current=0x00 voltage=0x00
+adcf 8: I=8002265 nA V=1200393 uV R=150006688 uOhm status current=0x00 voltage=0x00
+adcf 9: I=8002279 nA V=1200393 uV R=150006416 uOhm status current=0x00 voltage=0x00
+adcf 10: I=8002224 nA V=1200388 uV R=150006784 uOhm status current=0x00 voltage=0x00
+adcf 11: I=8002164 nA V=1200380 uV R=150006928 uOhm status current=0x00 voltage=0x00
+adcf 12: I=8002166 nA V=1200381 uV R=150006960 uOhm status current=0x00 voltage=0x00
+adcf 13: I=8002158 nA V=1200380 uV R=150007072 uOhm status current=0x00 voltage=0x00
+adcf 14: I=8002172 nA V=1200381 uV R=150006960 uOhm status current=0x00 voltage=0x00
+adcf 15: I=8002218 nA V=1200390 uV R=150007200 uOhm status current=0x00 voltage=0x00
+adcf 16: I=8002272 nA V=1200397 uV R=150007008 uOhm status current=0x00 voltage=0x00
+adcf 17: I=8002275 nA V=1200397 uV R=150006912 uOhm status current=0x00 voltage=0x00
+adcf 18: I=8002258 nA V=1200395 uV R=150007056 uOhm status current=0x00 voltage=0x00
+adcf 19: I=8002190 nA V=1200390 uV R=150007712 uOhm status current=0x00 voltage=0x00
+adcf 20: I=8002176 nA V=1200388 uV R=150007696 uOhm status current=0x00 voltage=0x00
+
+tc current 8.5
+ThermalControl current target: 8500 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=8501294 nA V=1275251 uV R=150006752 uOhm status current=0x00 voltage=0x00
+adcf 2: I=8501312 nA V=1275248 uV R=150006000 uOhm status current=0x00 voltage=0x00
+adcf 3: I=8501326 nA V=1275248 uV R=150005760 uOhm status current=0x00 voltage=0x00
+adcf 4: I=8501346 nA V=1275249 uV R=150005488 uOhm status current=0x00 voltage=0x00
+adcf 5: I=8501314 nA V=1275244 uV R=150005488 uOhm status current=0x00 voltage=0x00
+adcf 6: I=8501328 nA V=1275247 uV R=150005616 uOhm status current=0x00 voltage=0x00
+adcf 7: I=8501310 nA V=1275245 uV R=150005728 uOhm status current=0x00 voltage=0x00
+adcf 8: I=8501268 nA V=1275237 uV R=150005568 uOhm status current=0x00 voltage=0x00
+adcf 9: I=8501266 nA V=1275240 uV R=150005920 uOhm status current=0x00 voltage=0x00
+adcf 10: I=8501290 nA V=1275246 uV R=150006160 uOhm status current=0x00 voltage=0x00
+adcf 11: I=8501328 nA V=1275251 uV R=150006048 uOhm status current=0x00 voltage=0x00
+adcf 12: I=8501282 nA V=1275250 uV R=150006784 uOhm status current=0x00 voltage=0x00
+adcf 13: I=8501322 nA V=1275256 uV R=150006720 uOhm status current=0x00 voltage=0x00
+adcf 14: I=8501286 nA V=1275253 uV R=150007056 uOhm status current=0x00 voltage=0x00
+adcf 15: I=8501298 nA V=1275257 uV R=150007376 uOhm status current=0x00 voltage=0x00
+adcf 16: I=8501344 nA V=1275262 uV R=150007152 uOhm status current=0x00 voltage=0x00
+adcf 17: I=8501340 nA V=1275261 uV R=150007056 uOhm status current=0x00 voltage=0x00
+adcf 18: I=8501318 nA V=1275260 uV R=150007264 uOhm status current=0x00 voltage=0x00
+adcf 19: I=8501294 nA V=1275257 uV R=150007392 uOhm status current=0x00 voltage=0x00
+adcf 20: I=8501246 nA V=1275255 uV R=150007968 uOhm status current=0x00 voltage=0x00
+
+tc current 9
+ThermalControl current target: 9000 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=9000750 nA V=1350164 uV R=150005776 uOhm status current=0x00 voltage=0x00
+adcf 2: I=9000712 nA V=1350157 uV R=150005584 uOhm status current=0x00 voltage=0x00
+adcf 3: I=9000676 nA V=1350150 uV R=150005408 uOhm status current=0x00 voltage=0x00
+adcf 4: I=9000602 nA V=1350141 uV R=150005696 uOhm status current=0x00 voltage=0x00
+adcf 5: I=9000536 nA V=1350131 uV R=150005680 uOhm status current=0x00 voltage=0x00
+adcf 6: I=9000552 nA V=1350132 uV R=150005456 uOhm status current=0x00 voltage=0x00
+adcf 7: I=9000564 nA V=1350129 uV R=150004992 uOhm status current=0x00 voltage=0x00
+adcf 8: I=9000554 nA V=1350128 uV R=150004960 uOhm status current=0x00 voltage=0x00
+adcf 9: I=9000566 nA V=1350129 uV R=150004864 uOhm status current=0x00 voltage=0x00
+adcf 10: I=9000538 nA V=1350130 uV R=150005440 uOhm status current=0x00 voltage=0x00
+adcf 11: I=9000554 nA V=1350130 uV R=150005232 uOhm status current=0x00 voltage=0x00
+adcf 12: I=9000500 nA V=1350125 uV R=150005536 uOhm status current=0x00 voltage=0x00
+adcf 13: I=9000460 nA V=1350123 uV R=150005968 uOhm status current=0x00 voltage=0x00
+adcf 14: I=9000478 nA V=1350124 uV R=150005792 uOhm status current=0x00 voltage=0x00
+adcf 15: I=9000442 nA V=1350122 uV R=150006144 uOhm status current=0x00 voltage=0x00
+adcf 16: I=9000444 nA V=1350126 uV R=150006560 uOhm status current=0x00 voltage=0x00
+adcf 17: I=9000446 nA V=1350127 uV R=150006704 uOhm status current=0x00 voltage=0x00
+adcf 18: I=9000494 nA V=1350134 uV R=150006640 uOhm status current=0x00 voltage=0x00
+adcf 19: I=9000484 nA V=1350134 uV R=150006784 uOhm status current=0x00 voltage=0x00
+adcf 20: I=9000514 nA V=1350138 uV R=150006800 uOhm status current=0x00 voltage=0x00
+
+tc current 9.5
+ThermalControl current target: 9500 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=9500468 nA V=1425115 uV R=150004672 uOhm status current=0x00 voltage=0x00
+adcf 2: I=9500506 nA V=1425118 uV R=150004464 uOhm status current=0x00 voltage=0x00
+adcf 3: I=9500468 nA V=1425113 uV R=150004528 uOhm status current=0x00 voltage=0x00
+adcf 4: I=9500468 nA V=1425114 uV R=150004576 uOhm status current=0x00 voltage=0x00
+adcf 5: I=9500412 nA V=1425106 uV R=150004608 uOhm status current=0x00 voltage=0x00
+adcf 6: I=9500406 nA V=1425106 uV R=150004688 uOhm status current=0x00 voltage=0x00
+adcf 7: I=9500348 nA V=1425101 uV R=150005120 uOhm status current=0x00 voltage=0x00
+adcf 8: I=9500322 nA V=1425099 uV R=150005360 uOhm status current=0x00 voltage=0x00
+adcf 9: I=9500274 nA V=1425095 uV R=150005632 uOhm status current=0x00 voltage=0x00
+adcf 10: I=9500230 nA V=1425091 uV R=150006016 uOhm status current=0x00 voltage=0x00
+adcf 11: I=9500204 nA V=1425088 uV R=150006080 uOhm status current=0x00 voltage=0x00
+adcf 12: I=9500178 nA V=1425084 uV R=150006016 uOhm status current=0x00 voltage=0x00
+adcf 13: I=9500140 nA V=1425080 uV R=150006224 uOhm status current=0x00 voltage=0x00
+adcf 14: I=9500146 nA V=1425081 uV R=150006192 uOhm status current=0x00 voltage=0x00
+adcf 15: I=9500134 nA V=1425079 uV R=150006192 uOhm status current=0x00 voltage=0x00
+adcf 16: I=9500068 nA V=1425070 uV R=150006320 uOhm status current=0x00 voltage=0x00
+adcf 17: I=9500046 nA V=1425067 uV R=150006352 uOhm status current=0x00 voltage=0x00
+adcf 18: I=9500022 nA V=1425064 uV R=150006416 uOhm status current=0x00 voltage=0x00
+adcf 19: I=9499994 nA V=1425062 uV R=150006656 uOhm status current=0x00 voltage=0x00
+adcf 20: I=9499954 nA V=1425062 uV R=150007264 uOhm status current=0x00 voltage=0x00
+
+tc current 10
+ThermalControl current target: 10000 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=10001378 nA V=1500251 uV R=150004448 uOhm status current=0x00 voltage=0x00
+adcf 2: I=10001378 nA V=1500252 uV R=150004528 uOhm status current=0x00 voltage=0x00
+adcf 3: I=10001370 nA V=1500252 uV R=150004624 uOhm status current=0x00 voltage=0x00
+adcf 4: I=10001354 nA V=1500251 uV R=150004784 uOhm status current=0x00 voltage=0x00
+adcf 5: I=10001284 nA V=1500243 uV R=150005056 uOhm status current=0x00 voltage=0x00
+adcf 6: I=10001336 nA V=1500249 uV R=150004816 uOhm status current=0x00 voltage=0x00
+adcf 7: I=10001338 nA V=1500250 uV R=150004896 uOhm status current=0x00 voltage=0x00
+adcf 8: I=10001330 nA V=1500249 uV R=150004992 uOhm status current=0x00 voltage=0x00
+adcf 9: I=10001312 nA V=1500250 uV R=150005312 uOhm status current=0x00 voltage=0x00
+adcf 10: I=10001312 nA V=1500252 uV R=150005488 uOhm status current=0x00 voltage=0x00
+adcf 11: I=10001300 nA V=1500250 uV R=150005504 uOhm status current=0x00 voltage=0x00
+adcf 12: I=10001282 nA V=1500248 uV R=150005616 uOhm status current=0x00 voltage=0x00
+adcf 13: I=10001252 nA V=1500246 uV R=150005792 uOhm status current=0x00 voltage=0x00
+adcf 14: I=10001254 nA V=1500248 uV R=150006016 uOhm status current=0x00 voltage=0x00
+adcf 15: I=10001286 nA V=1500251 uV R=150005808 uOhm status current=0x00 voltage=0x00
+adcf 16: I=10001318 nA V=1500257 uV R=150005952 uOhm status current=0x00 voltage=0x00
+adcf 17: I=10001296 nA V=1500257 uV R=150006240 uOhm status current=0x00 voltage=0x00
+adcf 18: I=10001288 nA V=1500258 uV R=150006496 uOhm status current=0x00 voltage=0x00
+adcf 19: I=10001264 nA V=1500257 uV R=150006704 uOhm status current=0x00 voltage=0x00
+adcf 20: I=10001246 nA V=1500255 uV R=150006784 uOhm status current=0x00 voltage=0x00
+
+tc current 10.5
+ThermalControl current target: 10500 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=10502588 nA V=1575427 uV R=150003744 uOhm status current=0x00 voltage=0x00
+adcf 2: I=10502588 nA V=1575427 uV R=150003728 uOhm status current=0x00 voltage=0x00
+adcf 3: I=10502532 nA V=1575427 uV R=150004480 uOhm status current=0x00 voltage=0x00
+adcf 4: I=10502564 nA V=1575429 uV R=150004192 uOhm status current=0x00 voltage=0x00
+adcf 5: I=10502532 nA V=1575431 uV R=150004864 uOhm status current=0x00 voltage=0x00
+adcf 6: I=10502520 nA V=1575431 uV R=150005024 uOhm status current=0x00 voltage=0x00
+adcf 7: I=10502508 nA V=1575428 uV R=150004928 uOhm status current=0x00 voltage=0x00
+adcf 8: I=10502500 nA V=1575429 uV R=150005120 uOhm status current=0x00 voltage=0x00
+adcf 9: I=10502494 nA V=1575428 uV R=150005136 uOhm status current=0x00 voltage=0x00
+adcf 10: I=10502470 nA V=1575427 uV R=150005360 uOhm status current=0x00 voltage=0x00
+adcf 11: I=10502388 nA V=1575416 uV R=150005504 uOhm status current=0x00 voltage=0x00
+adcf 12: I=10502410 nA V=1575416 uV R=150005232 uOhm status current=0x00 voltage=0x00
+adcf 13: I=10502370 nA V=1575413 uV R=150005504 uOhm status current=0x00 voltage=0x00
+adcf 14: I=10502368 nA V=1575413 uV R=150005504 uOhm status current=0x00 voltage=0x00
+adcf 15: I=10502386 nA V=1575416 uV R=150005520 uOhm status current=0x00 voltage=0x00
+adcf 16: I=10502390 nA V=1575417 uV R=150005568 uOhm status current=0x00 voltage=0x00
+adcf 17: I=10502412 nA V=1575423 uV R=150005856 uOhm status current=0x00 voltage=0x00
+adcf 18: I=10502408 nA V=1575423 uV R=150005888 uOhm status current=0x00 voltage=0x00
+adcf 19: I=10502454 nA V=1575429 uV R=150005760 uOhm status current=0x00 voltage=0x00
+adcf 20: I=10502486 nA V=1575435 uV R=150005856 uOhm status current=0x00 voltage=0x00
+
+tc current 11
+ThermalControl current target: 11000 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=11002082 nA V=1650360 uV R=150004352 uOhm status current=0x00 voltage=0x00
+adcf 2: I=11002082 nA V=1650359 uV R=150004272 uOhm status current=0x00 voltage=0x00
+adcf 3: I=11002072 nA V=1650362 uV R=150004608 uOhm status current=0x00 voltage=0x00
+adcf 4: I=11002094 nA V=1650364 uV R=150004512 uOhm status current=0x00 voltage=0x00
+adcf 5: I=11002062 nA V=1650361 uV R=150004704 uOhm status current=0x00 voltage=0x00
+adcf 6: I=11002060 nA V=1650359 uV R=150004528 uOhm status current=0x00 voltage=0x00
+adcf 7: I=11002026 nA V=1650354 uV R=150004576 uOhm status current=0x00 voltage=0x00
+adcf 8: I=11002050 nA V=1650358 uV R=150004592 uOhm status current=0x00 voltage=0x00
+adcf 9: I=11002002 nA V=1650354 uV R=150004848 uOhm status current=0x00 voltage=0x00
+adcf 10: I=11001976 nA V=1650352 uV R=150005072 uOhm status current=0x00 voltage=0x00
+adcf 11: I=11001956 nA V=1650352 uV R=150005296 uOhm status current=0x00 voltage=0x00
+adcf 12: I=11001960 nA V=1650351 uV R=150005200 uOhm status current=0x00 voltage=0x00
+adcf 13: I=11002010 nA V=1650355 uV R=150004864 uOhm status current=0x00 voltage=0x00
+adcf 14: I=11002026 nA V=1650358 uV R=150004928 uOhm status current=0x00 voltage=0x00
+adcf 15: I=11001984 nA V=1650356 uV R=150005264 uOhm status current=0x00 voltage=0x00
+adcf 16: I=11002028 nA V=1650362 uV R=150005248 uOhm status current=0x00 voltage=0x00
+adcf 17: I=11002014 nA V=1650362 uV R=150005440 uOhm status current=0x00 voltage=0x00
+adcf 18: I=11001994 nA V=1650361 uV R=150005664 uOhm status current=0x00 voltage=0x00
+adcf 19: I=11001904 nA V=1650351 uV R=150005904 uOhm status current=0x00 voltage=0x00
+adcf 20: I=11001902 nA V=1650352 uV R=150006080 uOhm status current=0x00 voltage=0x00
+
+tc current 11.5
+ThermalControl current target: 11500 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=11498368 nA V=1724802 uV R=150004112 uOhm status current=0x00 voltage=0x00
+adcf 2: I=11498396 nA V=1724809 uV R=150004320 uOhm status current=0x00 voltage=0x00
+adcf 3: I=11498418 nA V=1724810 uV R=150004096 uOhm status current=0x00 voltage=0x00
+adcf 4: I=11498442 nA V=1724812 uV R=150003920 uOhm status current=0x00 voltage=0x00
+adcf 5: I=11498416 nA V=1724811 uV R=150004272 uOhm status current=0x00 voltage=0x00
+adcf 6: I=11498384 nA V=1724812 uV R=150004720 uOhm status current=0x00 voltage=0x00
+adcf 7: I=11498418 nA V=1724819 uV R=150004928 uOhm status current=0x00 voltage=0x00
+adcf 8: I=11498434 nA V=1724820 uV R=150004752 uOhm status current=0x00 voltage=0x00
+adcf 9: I=11498418 nA V=1724818 uV R=150004816 uOhm status current=0x00 voltage=0x00
+adcf 10: I=11498462 nA V=1724827 uV R=150005040 uOhm status current=0x00 voltage=0x00
+adcf 11: I=11498448 nA V=1724826 uV R=150005072 uOhm status current=0x00 voltage=0x00
+adcf 12: I=11498428 nA V=1724823 uV R=150005104 uOhm status current=0x00 voltage=0x00
+adcf 13: I=11498414 nA V=1724823 uV R=150005264 uOhm status current=0x00 voltage=0x00
+adcf 14: I=11498422 nA V=1724825 uV R=150005376 uOhm status current=0x00 voltage=0x00
+adcf 15: I=11498398 nA V=1724826 uV R=150005728 uOhm status current=0x00 voltage=0x00
+adcf 16: I=11498382 nA V=1724821 uV R=150005504 uOhm status current=0x00 voltage=0x00
+adcf 17: I=11498380 nA V=1724820 uV R=150005536 uOhm status current=0x00 voltage=0x00
+adcf 18: I=11498414 nA V=1724825 uV R=150005472 uOhm status current=0x00 voltage=0x00
+adcf 19: I=11498432 nA V=1724829 uV R=150005552 uOhm status current=0x00 voltage=0x00
+adcf 20: I=11498406 nA V=1724826 uV R=150005664 uOhm status current=0x00 voltage=0x00
+
+tc current 12
+ThermalControl current target: 12000 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=12000696 nA V=1800159 uV R=150004544 uOhm status current=0x00 voltage=0x00
+adcf 2: I=12000716 nA V=1800161 uV R=150004480 uOhm status current=0x00 voltage=0x00
+adcf 3: I=12000684 nA V=1800158 uV R=150004624 uOhm status current=0x00 voltage=0x00
+adcf 4: I=12000688 nA V=1800163 uV R=150005008 uOhm status current=0x00 voltage=0x00
+adcf 5: I=12000672 nA V=1800161 uV R=150005024 uOhm status current=0x00 voltage=0x00
+adcf 6: I=12000688 nA V=1800163 uV R=150004976 uOhm status current=0x00 voltage=0x00
+adcf 7: I=12000728 nA V=1800170 uV R=150005104 uOhm status current=0x00 voltage=0x00
+adcf 8: I=12000664 nA V=1800164 uV R=150005360 uOhm status current=0x00 voltage=0x00
+adcf 9: I=12000662 nA V=1800164 uV R=150005408 uOhm status current=0x00 voltage=0x00
+adcf 10: I=12000652 nA V=1800164 uV R=150005536 uOhm status current=0x00 voltage=0x00
+adcf 11: I=12000636 nA V=1800162 uV R=150005536 uOhm status current=0x00 voltage=0x00
+adcf 12: I=12000660 nA V=1800164 uV R=150005440 uOhm status current=0x00 voltage=0x00
+adcf 13: I=12000696 nA V=1800171 uV R=150005520 uOhm status current=0x00 voltage=0x00
+adcf 14: I=12000678 nA V=1800171 uV R=150005760 uOhm status current=0x00 voltage=0x00
+adcf 15: I=12000674 nA V=1800169 uV R=150005680 uOhm status current=0x00 voltage=0x00
+adcf 16: I=12000688 nA V=1800173 uV R=150005760 uOhm status current=0x00 voltage=0x00
+adcf 17: I=12000728 nA V=1800180 uV R=150005936 uOhm status current=0x00 voltage=0x00
+adcf 18: I=12000748 nA V=1800182 uV R=150005792 uOhm status current=0x00 voltage=0x00
+adcf 19: I=12000810 nA V=1800189 uV R=150005584 uOhm status current=0x00 voltage=0x00
+adcf 20: I=12000782 nA V=1800186 uV R=150005760 uOhm status current=0x00 voltage=0x00
+
+tc current 12.5
+ThermalControl current target: 12500 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=12499072 nA V=1874916 uV R=150004416 uOhm status current=0x00 voltage=0x00
+adcf 2: I=12499044 nA V=1874911 uV R=150004384 uOhm status current=0x00 voltage=0x00
+adcf 3: I=12499042 nA V=1874916 uV R=150004752 uOhm status current=0x00 voltage=0x00
+adcf 4: I=12498948 nA V=1874904 uV R=150004928 uOhm status current=0x00 voltage=0x00
+adcf 5: I=12498932 nA V=1874901 uV R=150004896 uOhm status current=0x00 voltage=0x00
+adcf 6: I=12498958 nA V=1874901 uV R=150004560 uOhm status current=0x00 voltage=0x00
+adcf 7: I=12498922 nA V=1874899 uV R=150004896 uOhm status current=0x00 voltage=0x00
+adcf 8: I=12498884 nA V=1874895 uV R=150005024 uOhm status current=0x00 voltage=0x00
+adcf 9: I=12498874 nA V=1874894 uV R=150005072 uOhm status current=0x00 voltage=0x00
+adcf 10: I=12498924 nA V=1874899 uV R=150004864 uOhm status current=0x00 voltage=0x00
+adcf 11: I=12498858 nA V=1874892 uV R=150005088 uOhm status current=0x00 voltage=0x00
+adcf 12: I=12498848 nA V=1874891 uV R=150005104 uOhm status current=0x00 voltage=0x00
+adcf 13: I=12498818 nA V=1874889 uV R=150005296 uOhm status current=0x00 voltage=0x00
+adcf 14: I=12498808 nA V=1874888 uV R=150005344 uOhm status current=0x00 voltage=0x00
+adcf 15: I=12498780 nA V=1874888 uV R=150005664 uOhm status current=0x00 voltage=0x00
+adcf 16: I=12498844 nA V=1874894 uV R=150005392 uOhm status current=0x00 voltage=0x00
+adcf 17: I=12498854 nA V=1874895 uV R=150005344 uOhm status current=0x00 voltage=0x00
+adcf 18: I=12498880 nA V=1874898 uV R=150005280 uOhm status current=0x00 voltage=0x00
+adcf 19: I=12498900 nA V=1874901 uV R=150005248 uOhm status current=0x00 voltage=0x00
+adcf 20: I=12498842 nA V=1874893 uV R=150005360 uOhm status current=0x00 voltage=0x00
+
+tc current 13
+ThermalControl current target: 13000 uA, status=OK (0)
+adcf 20
+AD7190 filtered samples: count=20 alpha=250 mpermil
+adcf 1: I=13001810 nA V=1950330 uV R=150004512 uOhm status current=0x00 voltage=0x00
+adcf 2: I=13001886 nA V=1950339 uV R=150004320 uOhm status current=0x00 voltage=0x00
+adcf 3: I=13001894 nA V=1950337 uV R=150004096 uOhm status current=0x00 voltage=0x00
+adcf 4: I=13001872 nA V=1950333 uV R=150004000 uOhm status current=0x00 voltage=0x00
+adcf 5: I=13001856 nA V=1950333 uV R=150004208 uOhm status current=0x00 voltage=0x00
+adcf 6: I=13001882 nA V=1950338 uV R=150004304 uOhm status current=0x00 voltage=0x00
+adcf 7: I=13001846 nA V=1950337 uV R=150004608 uOhm status current=0x00 voltage=0x00
+adcf 8: I=13001838 nA V=1950337 uV R=150004704 uOhm status current=0x00 voltage=0x00
+adcf 9: I=13001830 nA V=1950333 uV R=150004512 uOhm status current=0x00 voltage=0x00
+adcf 10: I=13001854 nA V=1950340 uV R=150004784 uOhm status current=0x00 voltage=0x00
+adcf 11: I=13001880 nA V=1950344 uV R=150004752 uOhm status current=0x00 voltage=0x00
+adcf 12: I=13001844 nA V=1950344 uV R=150005200 uOhm status current=0x00 voltage=0x00
+adcf 13: I=13001836 nA V=1950343 uV R=150005232 uOhm status current=0x00 voltage=0x00
+adcf 14: I=13001866 nA V=1950351 uV R=150005472 uOhm status current=0x00 voltage=0x00
+adcf 15: I=13001862 nA V=1950353 uV R=150005712 uOhm status current=0x00 voltage=0x00
+adcf 16: I=13001858 nA V=1950355 uV R=150005840 uOhm status current=0x00 voltage=0x00
+adcf 17: I=13001864 nA V=1950355 uV R=150005808 uOhm status current=0x00 voltage=0x00
+adcf 18: I=13001878 nA V=1950355 uV R=150005632 uOhm status current=0x00 voltage=0x00
+adcf 19: I=13001844 nA V=1950354 uV R=150006000 uOhm status current=0x00 voltage=0x00
+adcf 20: I=13001862 nA V=1950357 uV R=150005968 uOhm status current=0x00 voltage=0x00
