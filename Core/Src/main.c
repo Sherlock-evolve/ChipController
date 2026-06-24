@@ -196,8 +196,8 @@ static void App_ProcessDebugLine(const char *line)
     output_status = BoardOutput_SetDriveVoltage(target_mv / 1000.0f);
     App_ResetAdcFilter();
     BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                     "drive: %.1f mV, output=%s (%d), control=%s\r\n",
-                     (double)target_mv,
+                     "drive: %ld mV, output=%s (%d), control=%s\r\n",
+                     (long)target_mv,
                      BoardOutput_StatusText(output_status),
                      (int)output_status,
                      ThermalControl_StatusText(control_status));
