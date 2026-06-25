@@ -9,8 +9,8 @@
 
 #include "thermal_control.h"
 #include "board_output.h"
-#include "board_temperature.h"
 #include "chip_measure.h"
+#include "chip_temperature.h"
 
 #define THERMAL_CONTROL_SERVICE_PERIOD_MS       500u
 #define THERMAL_CONTROL_MIN_TARGET_TEMP_C       0.0f
@@ -40,7 +40,6 @@ static ThermalControl_Status thermal_control_measure(float *current_a,
                                                      float *load_voltage_v,
                                                      float *power_w,
                                                      float *resistance_ohm);
-static ThermalControl_Status thermal_control_read_temperature(float *temperature_c);
 static ThermalControl_Status thermal_control_apply_drive(float drive_v);
 static ThermalControl_Status thermal_control_zero_output(void);
 static ThermalControl_Status thermal_control_fault(ThermalControl_Status status);
@@ -132,11 +131,6 @@ ThermalControl_Status ThermalControl_SetTargetTemperature(float temperature_c)
     return THERMAL_CONTROL_INVALID_PARAM;
   }
 
-  if (BoardTemperature_IsPresent() == 0u)
-  {
-    return THERMAL_CONTROL_TEMP_NOT_PRESENT;
-  }
-
   s_snapshot.mode = THERMAL_CONTROL_MODE_TEMPERATURE;
   s_snapshot.enabled = 1u;
   s_snapshot.faulted = 0u;
@@ -160,6 +154,7 @@ ThermalControl_Status ThermalControl_Service(uint32_t now_ms)
   float target_drive_v;
   uint32_t elapsed_ms = THERMAL_CONTROL_SERVICE_PERIOD_MS;
   float dt_s;
+  uint8_t resistance_valid = 0u;
   ThermalControl_Status status;
 
   if ((s_snapshot.enabled == 0u) || (s_snapshot.faulted != 0u))
@@ -178,32 +173,34 @@ ThermalControl_Status ThermalControl_Service(uint32_t now_ms)
   s_last_service_ms = now_ms;
   dt_s = (float)elapsed_ms / 1000.0f;
 
-  if (s_snapshot.mode == THERMAL_CONTROL_MODE_TEMPERATURE)
-  {
-    status = thermal_control_read_temperature(&measured_temperature_c);
-    if (status != THERMAL_CONTROL_OK)
-    {
-      return thermal_control_fault(status);
-    }
-  }
-
   status = thermal_control_measure(&current_a, &load_voltage_v, &power_w, &resistance_ohm);
   if (status != THERMAL_CONTROL_OK)
   {
     return thermal_control_fault(status);
   }
 
-  s_snapshot.measured_temperature_c = measured_temperature_c;
   s_snapshot.measured_current_a = current_a;
   s_snapshot.load_voltage_v = load_voltage_v;
   s_snapshot.power_w = power_w;
   s_snapshot.resistance_ohm = resistance_ohm;
 
-  if ((s_snapshot.mode == THERMAL_CONTROL_MODE_TEMPERATURE) &&
-      (measured_temperature_c > THERMAL_CONTROL_MAX_BOARD_TEMP_C))
+  /* Temperature is inferred from the just-measured resistance. Resistance is
+   * only valid while current is flowing; when it is not (cold start / idle),
+   * hold the previous temperature and defer both the overtemp check and the PI
+   * integration so we neither fault nor wind up on a stale reading. */
+  resistance_valid = (current_a > THERMAL_CONTROL_MIN_RESISTANCE_CURRENT) ? 1u : 0u;
+
+  if ((s_snapshot.mode == THERMAL_CONTROL_MODE_TEMPERATURE) && (resistance_valid != 0u))
   {
-    return thermal_control_fault(THERMAL_CONTROL_OVERTEMP);
+    measured_temperature_c = ChipTemperature_FromResistance(resistance_ohm);
+
+    if (measured_temperature_c > THERMAL_CONTROL_MAX_BOARD_TEMP_C)
+    {
+      return thermal_control_fault(THERMAL_CONTROL_OVERTEMP);
+    }
   }
+
+  s_snapshot.measured_temperature_c = measured_temperature_c;
 
   if (current_a > THERMAL_CONTROL_MAX_CURRENT_A)
   {
@@ -225,7 +222,21 @@ ThermalControl_Status ThermalControl_Service(uint32_t now_ms)
     float temperature_error_c = s_snapshot.target_temperature_c - measured_temperature_c;
 
     s_snapshot.temperature_error_c = temperature_error_c;
-    target_current_a = thermal_control_temperature_pi(temperature_error_c, dt_s);
+
+    if (resistance_valid != 0u)
+    {
+      target_current_a = thermal_control_temperature_pi(temperature_error_c, dt_s);
+    }
+    else
+    {
+      /* No valid temperature yet (no current flowing): apply proportional-only
+       * action so current still ramps to bootstrap heating, without integrating
+       * a stale error. The integrator is frozen until resistance is valid. */
+      target_current_a = thermal_control_clampf(temperature_error_c * THERMAL_CONTROL_TEMP_KP_A_PER_C,
+                                                0.0f,
+                                                THERMAL_CONTROL_MAX_TARGET_CURRENT_A);
+    }
+
     s_snapshot.target_current_a = target_current_a;
   }
   else if (s_snapshot.mode == THERMAL_CONTROL_MODE_CURRENT)
@@ -276,8 +287,6 @@ const char *ThermalControl_StatusText(ThermalControl_Status status)
       return "MEASURE_ERROR";
     case THERMAL_CONTROL_TEMP_ERROR:
       return "TEMP_ERROR";
-    case THERMAL_CONTROL_TEMP_NOT_PRESENT:
-      return "TEMP_NOT_PRESENT";
     case THERMAL_CONTROL_OUTPUT_ERROR:
       return "OUTPUT_ERROR";
     case THERMAL_CONTROL_OVERCURRENT:
@@ -338,26 +347,6 @@ static ThermalControl_Status thermal_control_measure(float *current_a,
   }
 
   return THERMAL_CONTROL_OK;
-}
-
-static ThermalControl_Status thermal_control_read_temperature(float *temperature_c)
-{
-  BoardTemperature_Sample sample;
-  BoardTemperature_Status status;
-
-  status = BoardTemperature_Read(&sample);
-  if (status == BOARD_TEMPERATURE_OK)
-  {
-    *temperature_c = sample.temperature_c;
-    return THERMAL_CONTROL_OK;
-  }
-
-  if (status == BOARD_TEMPERATURE_NOT_PRESENT)
-  {
-    return THERMAL_CONTROL_TEMP_NOT_PRESENT;
-  }
-
-  return THERMAL_CONTROL_TEMP_ERROR;
 }
 
 static ThermalControl_Status thermal_control_apply_drive(float drive_v)

@@ -83,7 +83,6 @@ TREND_SERIES = [
     TrendSeries("voltage_mv", "电压", "voltage", "#009E73", 3),
     TrendSeries("resistance_ohm", "电阻", "resistance", "#CC79A7", 3),
     TrendSeries("chip_temp_c", "芯片温度", "temperature", "#E69F00", 2),
-    TrendSeries("stage_temp_c", "冷台温度", "temperature", "#56B4E9", 2),
     TrendSeries("drive_mv", "驱动电压", "drive", "#000000", 1),
 ]
 
@@ -671,7 +670,6 @@ class MainWindow(QMainWindow):
         self.control_mode = QLabel("--")
         self.control_drive = QLabel("--")
         self.chip_temp = QLabel("--")
-        self.stage_temp = QLabel("--")
 
         labels = [
             ("电流 ADC", self.current_label),
@@ -681,7 +679,6 @@ class MainWindow(QMainWindow):
             ("控制模式", self.control_mode),
             ("驱动电压", self.control_drive),
             ("芯片温度", self.chip_temp),
-            ("冷台温度", self.stage_temp),
         ]
 
         for index, (name, widget) in enumerate(labels):
@@ -867,10 +864,8 @@ class MainWindow(QMainWindow):
     @Slot(dict)
     def _update_board_temperature(self, values):
         chip_temp = values.get("chip_mC")
-        stage_temp = values.get("stage_mC")
-        stage_status = values.get("stage_status")
+        chip_status = values.get("chip_status")
         chip_temp_c = None
-        stage_temp_c = None
 
         if chip_temp is not None:
             try:
@@ -878,17 +873,11 @@ class MainWindow(QMainWindow):
                 self.chip_temp.setText(f"{chip_temp_c:.3f} C")
             except ValueError:
                 self.chip_temp.setText(str(chip_temp))
+        elif chip_status is not None:
+            # NO_CURRENT etc.: temperature only valid while current flows.
+            self.chip_temp.setText("--")
 
-        if stage_temp is not None:
-            try:
-                stage_temp_c = int(stage_temp) / 1000.0
-                self.stage_temp.setText(f"{stage_temp_c:.3f} C")
-            except ValueError:
-                self.stage_temp.setText(str(stage_temp))
-        elif stage_status is not None:
-            self.stage_temp.setText(stage_status)
-
-        self._record_telemetry(chip_temp_c=chip_temp_c, stage_temp_c=stage_temp_c)
+        self._record_telemetry(chip_temp_c=chip_temp_c)
 
 
 def main():

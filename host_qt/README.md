@@ -14,7 +14,7 @@ PySide6 上位机，用于当前 ChipController 板的调试和后续温控联�
   - 外接负载电阻：由滤波后的电压/电流计算
   - 两个 AD7190 状态字节
   - `tc status` 中的控制状态、驱动电压
-  - ChipController `temp` 命令返回的芯片温度、冷台温度
+  - ChipController `temp` 命令返回的芯片温度（由 CN9 注入电流测得电阻、按线性 R-T 反推）
 
 ## 运行
 
@@ -29,21 +29,12 @@ python3 host_qt/chip_controller_gui.py
 ## 串口分工
 
 - 电脑只连接 `ChipController 串口`，也就是 Type-C 调试口，默认 `115200`。
-- 外部芯片板/温度设备接 ChipController 的 `CN4` RS485，由 ChipController 主动发送 `0x1E`、`0x1F` 查询温度。
+- 温度由 ChipController 本地测量，不再经 CN4 RS485 查询外部板。
 
-如果同时插了 Type-C 和 USB-RS485，建议用 `/dev/serial/by-id/` 识别实际设备。
+## 温度来源
 
-## 温度协议假设
+芯片接在 `CN9`（4 线开尔文：`I+/I-/V+/V-`）。ChipController 注入电流加热芯片的同时，用两片 AD7190 同步测得电流 I（1Ω 采样电阻）和端电压 V，计算 `R = V/I`，再按线性 R-T 模型反推温度：
 
-Excel 中说明：
+- `R = R0 * (1 + alpha * (T - T0))`  =>  `T = T0 + (R - R0) / (alpha * R0)`
 
-- 发送帧同步字：`0x5A`
-- 回复帧同步字：`0xAA`
-- 地址：`0xA5`
-- 读指令：`0x51`
-- 读回复：`0x61`
-- 子命令：`0x00`
-- CRC：CRC16-Modbus，计算内容不包含同步字，低字节在前
-- 结束帧：`0x0D 0x0A`
-
-当前固件把温度回复 payload 的前 2 字节按 little-endian signed int16 解析，并直接作为摄氏度原始值上报。如果实测协议单位是 0.1°C 或 0.01°C，需要调整 `Core/Src/board_temperature.c` 里的 `BOARD_TEMPERATURE_EXT_TEMP_SCALE_C_PER_COUNT`。
+标定常量 `R0`、`alpha`、`T0` 在 `Core/Src/chip_temperature.c` 顶部定义（需替换占位值为芯片实测标定）。`temp` 命令返回 `Temperature: chip_mC=<值>`；无电流（待机）时返回 `Temperature: chip_status=NO_CURRENT`，上位机显示 `--`。
