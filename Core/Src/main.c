@@ -313,6 +313,7 @@ static void App_PrintTemperature(void)
   float voltage_abs_v;
   float resistance_ohm;
   float temperature_c;
+  int32_t temperature_mC;
 
   status = ChipMeasure_ReadSynchronized(CHIP_MEASURE_PATH_EXTERNAL, &sample);
   if (status != CHIP_MEASURE_OK)
@@ -336,10 +337,11 @@ static void App_PrintTemperature(void)
 
   resistance_ohm = voltage_abs_v / current_abs_a;
   temperature_c = ChipTemperature_FromResistance(resistance_ohm);
+  temperature_mC = App_FloatToMilli(temperature_c);
 
   BoardUart_Printf(BOARD_UART_PORT_DEBUG,
                    "Temperature: chip_mC=%ld\r\n",
-                   (long)App_FloatToMilli(temperature_c));
+                   (long)temperature_mC);
 }
 
 static void App_PrintThermalControl(void)
