@@ -337,14 +337,7 @@ static ThermalControl_Status thermal_control_measure(float *current_a,
   *load_voltage_v = thermal_control_absf(sample.load_voltage_v);
   *power_w = (*current_a) * (*load_voltage_v);
 
-  if (*current_a > THERMAL_CONTROL_MIN_RESISTANCE_CURRENT)
-  {
-    *resistance_ohm = (*load_voltage_v) / (*current_a);
-  }
-  else
-  {
-    *resistance_ohm = 0.0f;
-  }
+  (void)ChipMeasure_ComputeExternalResistance(*load_voltage_v, *current_a, resistance_ohm);
 
   return THERMAL_CONTROL_OK;
 }

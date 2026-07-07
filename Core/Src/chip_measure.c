@@ -21,6 +21,11 @@
 /* External path gain, measured against a 150.007 ohm load and DMM voltage. */
 #define CHIP_MEASURE_CURRENT_GAIN         1.00079f
 #define CHIP_MEASURE_VOLTAGE_GAIN         1.00329f
+/* Effective voltage-sense loading compensation for U14 unbuffered conversions.
+ * The 150 ohm load was used for gain calibration, so keep that point anchored
+ * and apply only the incremental correction above it. Reported I/V stay raw. */
+#define CHIP_MEASURE_VOLTAGE_SENSE_LOAD_OHM   330000.0f
+#define CHIP_MEASURE_RESISTANCE_ANCHOR_OHM    150.007f
 
 extern SPI_HandleTypeDef hspi1;
 extern SPI_HandleTypeDef hspi2;
@@ -372,6 +377,65 @@ ChipMeasure_Status ChipMeasure_ReadInternalR42(ChipMeasure_R42Sample *sample)
 
   (void)ChipMeasure_SelectPath(CHIP_MEASURE_PATH_EXTERNAL);
   return CHIP_MEASURE_OK;
+}
+
+uint8_t ChipMeasure_ComputeExternalResistance(float load_voltage_v,
+                                              float total_current_a,
+                                              float *resistance_ohm)
+{
+  float voltage_abs_v;
+  float total_current_abs_a;
+  float sense_branch_current_a;
+  float load_current_a;
+  float raw_resistance_ohm;
+  float anchor_compensated_ohm;
+  float anchor_delta_ohm;
+
+  if (resistance_ohm == NULL)
+  {
+    return 0u;
+  }
+
+  *resistance_ohm = 0.0f;
+  voltage_abs_v = chip_measure_absf(load_voltage_v);
+  total_current_abs_a = chip_measure_absf(total_current_a);
+
+  if (total_current_abs_a < CHIP_MEASURE_MIN_CURRENT_A)
+  {
+    return 0u;
+  }
+
+  raw_resistance_ohm = voltage_abs_v / total_current_abs_a;
+  if (raw_resistance_ohm <= CHIP_MEASURE_RESISTANCE_ANCHOR_OHM)
+  {
+    *resistance_ohm = raw_resistance_ohm;
+    return 1u;
+  }
+
+  sense_branch_current_a = voltage_abs_v / CHIP_MEASURE_VOLTAGE_SENSE_LOAD_OHM;
+  if (sense_branch_current_a >= total_current_abs_a)
+  {
+    return 0u;
+  }
+
+  load_current_a = total_current_abs_a - sense_branch_current_a;
+  if (load_current_a < CHIP_MEASURE_MIN_CURRENT_A)
+  {
+    return 0u;
+  }
+
+  anchor_compensated_ohm =
+      CHIP_MEASURE_RESISTANCE_ANCHOR_OHM /
+      (1.0f - (CHIP_MEASURE_RESISTANCE_ANCHOR_OHM / CHIP_MEASURE_VOLTAGE_SENSE_LOAD_OHM));
+  anchor_delta_ohm = anchor_compensated_ohm - CHIP_MEASURE_RESISTANCE_ANCHOR_OHM;
+  *resistance_ohm = (voltage_abs_v / load_current_a) - anchor_delta_ohm;
+  if (*resistance_ohm < 0.0f)
+  {
+    *resistance_ohm = 0.0f;
+    return 0u;
+  }
+
+  return 1u;
 }
 
 static ChipMeasure_Status chip_measure_from_ad7190_status(AD7190_Status status)

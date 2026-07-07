@@ -335,7 +335,14 @@ static void App_PrintTemperature(void)
     return;
   }
 
-  resistance_ohm = voltage_abs_v / current_abs_a;
+  if (ChipMeasure_ComputeExternalResistance(voltage_abs_v, current_abs_a, &resistance_ohm) == 0u)
+  {
+    BoardUart_WriteString(BOARD_UART_PORT_DEBUG,
+                          "Temperature: chip_status=NO_CURRENT\r\n",
+                          100u);
+    return;
+  }
+
   temperature_c = ChipTemperature_FromResistance(resistance_ohm);
   temperature_mC = App_FloatToMilli(temperature_c);
 
@@ -399,7 +406,7 @@ static void App_PrintAdcSamples(uint32_t count)
 
     current_abs_a = (sample.current_a < 0.0f) ? -sample.current_a : sample.current_a;
     voltage_abs_v = (sample.load_voltage_v < 0.0f) ? -sample.load_voltage_v : sample.load_voltage_v;
-    resistance_ohm = (current_abs_a > 0.000001f) ? (voltage_abs_v / current_abs_a) : 0.0f;
+    (void)ChipMeasure_ComputeExternalResistance(voltage_abs_v, current_abs_a, &resistance_ohm);
 
     BoardUart_Printf(BOARD_UART_PORT_DEBUG,
                      "adc %lu: I=%ld nA V=%ld uV R=%ld mOhm\r\n",
@@ -452,7 +459,7 @@ static void App_PrintAdcFilteredSamples(uint32_t count)
 
     current_abs_a = (s_adc_filter_current_a < 0.0f) ? -s_adc_filter_current_a : s_adc_filter_current_a;
     voltage_abs_v = (s_adc_filter_voltage_v < 0.0f) ? -s_adc_filter_voltage_v : s_adc_filter_voltage_v;
-    resistance_ohm = (current_abs_a > 0.000001f) ? (voltage_abs_v / current_abs_a) : 0.0f;
+    (void)ChipMeasure_ComputeExternalResistance(voltage_abs_v, current_abs_a, &resistance_ohm);
 
     BoardUart_Printf(BOARD_UART_PORT_DEBUG,
                      "adcf %lu: I=%ld nA V=%ld uV R=%ld uOhm status current=0x%02X voltage=0x%02X\r\n",
