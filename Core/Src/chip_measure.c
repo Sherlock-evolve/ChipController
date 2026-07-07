@@ -18,8 +18,8 @@
 /* External path zero, measured with I+/I- open and V+/V- shorted. */
 #define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000535f
 #define CHIP_MEASURE_VOLTAGE_ZERO_V       0.00000603f
-/* External path gain, measured against a 150.002 ohm load and DMM voltage. */
-#define CHIP_MEASURE_CURRENT_GAIN         1.00091f
+/* External path gain, measured against a 150.007 ohm load and DMM voltage. */
+#define CHIP_MEASURE_CURRENT_GAIN         1.00079f
 #define CHIP_MEASURE_VOLTAGE_GAIN         1.00329f
 
 extern SPI_HandleTypeDef hspi1;

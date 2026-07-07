@@ -19,7 +19,7 @@
 ```c
 #define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000535f
 #define CHIP_MEASURE_VOLTAGE_ZERO_V       0.00000603f
-#define CHIP_MEASURE_CURRENT_GAIN         1.00091f
+#define CHIP_MEASURE_CURRENT_GAIN         1.00079f
 #define CHIP_MEASURE_VOLTAGE_GAIN         1.00329f
 ```
 
@@ -217,9 +217,11 @@ adcs 25
 
 ### 当前增益来源
 
-`CHIP_MEASURE_CURRENT_GAIN = 1.00091f`
+`CHIP_MEASURE_CURRENT_GAIN = 1.00079f`
 
-- 根据 `log/test_03` 中的 DMM 电压、`150.002 ohm` 标准电阻和板载电流读数加权估算
+- `2026-07-06` 复测 `150.007 ohm` 标准电阻，5 mA、8 mA、10 mA、12 mA 的板载电阻均值约为 `149.9876 ohm`
+- DMM/DAQ6510 同步电压接近板载电压读数，因此偏差主要归因于电流通道约 `+129 ppm` 的比例偏高
+- 原 `1.00091f` 来自 `log/test_03` 中的 DMM 电压、`150.002 ohm` 标准电阻和板载电流读数加权估算，已被本次复测更新
 - 用于修正电流通道的整体比例误差
 
 `CHIP_MEASURE_VOLTAGE_GAIN = 1.00329f`
