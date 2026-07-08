@@ -83,6 +83,7 @@ TREND_SERIES = [
     TrendSeries("voltage_mv", "电压", "voltage", "#009E73", 3),
     TrendSeries("resistance_ohm", "电阻", "resistance", "#CC79A7", 3),
     TrendSeries("chip_temp_c", "芯片温度", "temperature", "#E69F00", 2),
+    TrendSeries("target_temp_c", "目标温度", "temperature", "#56B4E9", 2, True, True),
     TrendSeries("drive_mv", "驱动电压", "drive", "#000000", 1),
 ]
 
@@ -385,6 +386,9 @@ class ChipAsciiClient(QObject):
     def set_current_ma(self, current_ma):
         self.send_command(f"tc current {current_ma:.3f}")
 
+    def set_temperature_c(self, temperature_c):
+        self.send_command(f"tc temp {temperature_c:.3f}")
+
     def stop_control(self):
         self.send_command("tc stop")
 
@@ -622,7 +626,7 @@ class MainWindow(QMainWindow):
         return group
 
     def _build_control_group(self):
-        group = QGroupBox("电流与采样")
+        group = QGroupBox("温控与采样")
         form = QFormLayout(group)
 
         self.current_ma = QDoubleSpinBox()
@@ -639,6 +643,18 @@ class MainWindow(QMainWindow):
         current_row.addWidget(self.set_current)
         current_row.addWidget(self.stop_current)
         form.addRow("目标电流 mA", current_row)
+
+        self.temperature_c = QDoubleSpinBox()
+        self.temperature_c.setRange(-200.0, 100.0)
+        self.temperature_c.setDecimals(3)
+        self.temperature_c.setSingleStep(0.5)
+        self.temperature_c.setValue(20.0)
+        self.set_temperature = QPushButton("设置恒温")
+
+        temperature_row = QHBoxLayout()
+        temperature_row.addWidget(self.temperature_c)
+        temperature_row.addWidget(self.set_temperature)
+        form.addRow("目标温度 C", temperature_row)
 
         self.filter_period = QSpinBox()
         self.filter_period.setRange(100, 60000)
@@ -670,6 +686,8 @@ class MainWindow(QMainWindow):
         self.control_mode = QLabel("--")
         self.control_drive = QLabel("--")
         self.chip_temp = QLabel("--")
+        self.target_temp = QLabel("--")
+        self.temperature_error = QLabel("--")
 
         labels = [
             ("电流 ADC", self.current_label),
@@ -679,6 +697,8 @@ class MainWindow(QMainWindow):
             ("控制模式", self.control_mode),
             ("驱动电压", self.control_drive),
             ("芯片温度", self.chip_temp),
+            ("目标温度", self.target_temp),
+            ("温度误差", self.temperature_error),
         ]
 
         for index, (name, widget) in enumerate(labels):
@@ -695,6 +715,7 @@ class MainWindow(QMainWindow):
         self.chip_refresh.clicked.connect(self.refresh_ports)
         self.chip_connect.clicked.connect(self._toggle_chip)
         self.set_current.clicked.connect(self._set_current)
+        self.set_temperature.clicked.connect(self._set_temperature)
         self.stop_current.clicked.connect(self._stop_current)
         self.start_stream.clicked.connect(self._start_stream)
         self.stop_stream.clicked.connect(self._stop_stream)
@@ -743,11 +764,17 @@ class MainWindow(QMainWindow):
         if self.chip.is_open():
             self._record_telemetry(target_current_ma=target_ma)
 
+    def _set_temperature(self):
+        target_c = self.temperature_c.value()
+        self.chip.set_temperature_c(target_c)
+        if self.chip.is_open():
+            self._record_telemetry(target_temp_c=target_c)
+
     def _stop_current(self):
         self.chip.stop_control()
         self.chip.send_command("zero")
         if self.chip.is_open():
-            self._record_telemetry(target_current_ma=0.0, drive_mv=0.0)
+            self._record_telemetry(target_current_ma=0.0, target_temp_c=0.0, drive_mv=0.0)
 
     def _start_stream(self):
         self.chip.stop_stream()
@@ -851,13 +878,25 @@ class MainWindow(QMainWindow):
         measured_current_ua = self._int_value(values.get("measured_current_uA"))
         measured_voltage_mv = self._int_value(values.get("measured_voltage_mV"))
         measured_resistance_mohm = self._int_value(values.get("measured_resistance_mOhm"))
+        target_temp_mc = self._int_value(values.get("target_temp_mC"))
+        measured_temp_mc = self._int_value(values.get("measured_temp_mC"))
+        temperature_error_mc = self._int_value(values.get("temperature_error_mC"))
         drive_mv = self._int_value(drive)
+
+        if target_temp_mc is not None:
+            self.target_temp.setText(f"{target_temp_mc / 1000.0:.3f} C")
+        if measured_temp_mc is not None:
+            self.chip_temp.setText(f"{measured_temp_mc / 1000.0:.3f} C")
+        if temperature_error_mc is not None:
+            self.temperature_error.setText(f"{temperature_error_mc / 1000.0:.3f} C")
 
         self._record_telemetry(
             target_current_ma=None if target_current_ua is None else target_current_ua / 1000.0,
             current_ma=None if measured_current_ua is None else measured_current_ua / 1000.0,
             voltage_mv=measured_voltage_mv,
             resistance_ohm=None if measured_resistance_mohm is None else measured_resistance_mohm / 1000.0,
+            target_temp_c=None if target_temp_mc is None else target_temp_mc / 1000.0,
+            chip_temp_c=None if measured_temp_mc is None else measured_temp_mc / 1000.0,
             drive_mv=drive_mv,
         )
 

@@ -12,7 +12,7 @@
 
 #define BOARD_OUTPUT_I2C_TIMEOUT_MS          100u
 #define BOARD_OUTPUT_DAC_FULL_SCALE_V        5.0f
-#define BOARD_OUTPUT_MAX_DRIVE_V             0.500f
+#define BOARD_OUTPUT_MAX_DRIVE_V             1.00f
 #define BOARD_OUTPUT_R42_TEST_TARGET_A       0.005f
 #define BOARD_OUTPUT_R42_TEST_MAX_A          0.050f
 #define BOARD_OUTPUT_R42_TEST_MIN_A          0.0005f
