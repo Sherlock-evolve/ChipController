@@ -20,7 +20,6 @@ __pycache__/
 .agents/
 .codex/
 .claude/
-CLAUDE.md
 
 # OS
 .DS_Store

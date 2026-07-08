@@ -75,6 +75,9 @@ ChipMeasure_Status ChipMeasure_ReadSynchronizedFast(ChipMeasure_Path path, ChipM
 ChipMeasure_Status ChipMeasure_StartHighRateStream(ChipMeasure_Path path);
 ChipMeasure_Status ChipMeasure_ReadHighRateStreamSample(ChipMeasure_Path path, ChipMeasure_SyncSample *sample);
 ChipMeasure_Status ChipMeasure_ReadInternalR42(ChipMeasure_R42Sample *sample);
+uint8_t ChipMeasure_ComputeExternalResistance(float load_voltage_v,
+                                               float total_current_a,
+                                               float *resistance_ohm);
 
 #ifdef __cplusplus
 }

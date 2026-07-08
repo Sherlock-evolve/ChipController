@@ -23,9 +23,8 @@
 /* USER CODE BEGIN Includes */
 #include "board_uart.h"
 #include "board_output.h"
-#include "board_protocol.h"
-#include "board_temperature.h"
 #include "chip_measure.h"
+#include "chip_temperature.h"
 #include "thermal_control.h"
 #include <string.h>
 
@@ -55,6 +54,9 @@ typedef struct
 #define APP_ADC_FILTER_ALPHA 0.25f
 #define APP_TIMEBASE_HZ 1000000u
 #define APP_TIMEBASE_PERIOD 0xFFFFu
+/* Minimum current for a valid resistance (and thus temperature) reading.
+ * Mirrors THERMAL_CONTROL_MIN_RESISTANCE_CURRENT / CHIP_MEASURE_MIN_CURRENT_A. */
+#define APP_TEMP_MIN_CURRENT_A         0.000001f
 
 /* USER CODE END PD */
 
@@ -237,13 +239,6 @@ static void App_ProcessDebugLine(const char *line)
   {
     App_PrintTemperature();
   }
-  else if (strcmp(line, "rs485 tx") == 0)
-  {
-    BoardUart_Status status;
-
-    status = BoardUart_WriteString(BOARD_UART_PORT_RS485, "OK RS485_DEBUG_TX\r\n", 100u);
-    BoardUart_Printf(BOARD_UART_PORT_DEBUG, "RS485 debug TX: %d\r\n", (int)status);
-  }
   else if (strcmp(line, "adcs") == 0)
   {
     App_PrintAdcSamples(APP_ADC_SAMPLE_DEFAULT_COUNT);
@@ -394,8 +389,7 @@ static void App_PrintHelp(void)
                         "  zero     - force DAC outputs to 0V\r\n"
                         "  drive <mV> - open-loop DAC drive voltage (0-500 mV)\r\n"
                         "  r42test  - run safe internal 30-ohm self-test\r\n"
-                        "  temp     - read board/external temperature\r\n"
-                        "  rs485 tx - send a test line on CN4 RS485\r\n"
+                        "  temp     - read chip temperature (from resistance)\r\n"
                         "  adcs <n> - read synchronized AD7190 samples\r\n"
                         "  adcf <n> - read filtered AD7190 samples\r\n"
                         "  adch <n> - capture high-rate AD7190 samples\r\n"
@@ -412,37 +406,48 @@ static void App_PrintHelp(void)
 
 static void App_PrintTemperature(void)
 {
-  BoardTemperature_Sample sample;
-  BoardTemperature_Sample stage_sample;
-  BoardTemperature_Status status;
-  BoardTemperature_Status stage_status = BOARD_TEMPERATURE_NOT_PRESENT;
+  ChipMeasure_SyncSample sample;
+  ChipMeasure_Status status;
+  float current_abs_a;
+  float voltage_abs_v;
+  float resistance_ohm;
+  float temperature_c;
+  int32_t temperature_mC;
 
-  status = BoardTemperature_Read(&sample);
-  if (status == BOARD_TEMPERATURE_OK)
-  {
-    stage_status = BoardTemperature_ReadStage(&stage_sample);
-    if (stage_status == BOARD_TEMPERATURE_OK)
-    {
-      BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                       "Temperature: chip_mC=%ld stage_mC=%ld\r\n",
-                       (long)App_FloatToMilli(sample.temperature_c),
-                       (long)App_FloatToMilli(stage_sample.temperature_c));
-    }
-    else
-    {
-      BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                       "Temperature: chip_mC=%ld stage_status=%s\r\n",
-                       (long)App_FloatToMilli(sample.temperature_c),
-                       BoardTemperature_StatusText(stage_status));
-    }
-  }
-  else
+  status = ChipMeasure_ReadSynchronized(CHIP_MEASURE_PATH_EXTERNAL, &sample);
+  if (status != CHIP_MEASURE_OK)
   {
     BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                     "Temperature read: %s (%d)\r\n",
-                     BoardTemperature_StatusText(status),
-                     (int)status);
+                     "Temperature: chip_status=%s\r\n",
+                     App_ChipMeasureStatusText(status));
+    return;
   }
+
+  current_abs_a = (sample.current_a < 0.0f) ? -sample.current_a : sample.current_a;
+  voltage_abs_v = (sample.load_voltage_v < 0.0f) ? -sample.load_voltage_v : sample.load_voltage_v;
+
+  if (current_abs_a < APP_TEMP_MIN_CURRENT_A)
+  {
+    BoardUart_WriteString(BOARD_UART_PORT_DEBUG,
+                          "Temperature: chip_status=NO_CURRENT\r\n",
+                          100u);
+    return;
+  }
+
+  if (ChipMeasure_ComputeExternalResistance(voltage_abs_v, current_abs_a, &resistance_ohm) == 0u)
+  {
+    BoardUart_WriteString(BOARD_UART_PORT_DEBUG,
+                          "Temperature: chip_status=NO_CURRENT\r\n",
+                          100u);
+    return;
+  }
+
+  temperature_c = ChipTemperature_FromResistance(resistance_ohm);
+  temperature_mC = App_FloatToMilli(temperature_c);
+
+  BoardUart_Printf(BOARD_UART_PORT_DEBUG,
+                   "Temperature: chip_mC=%ld\r\n",
+                   (long)temperature_mC);
 }
 
 static void App_PrintThermalControl(void)
@@ -500,7 +505,7 @@ static void App_PrintAdcSamples(uint32_t count)
 
     current_abs_a = (sample.current_a < 0.0f) ? -sample.current_a : sample.current_a;
     voltage_abs_v = (sample.load_voltage_v < 0.0f) ? -sample.load_voltage_v : sample.load_voltage_v;
-    resistance_ohm = (current_abs_a > 0.000001f) ? (voltage_abs_v / current_abs_a) : 0.0f;
+    (void)ChipMeasure_ComputeExternalResistance(voltage_abs_v, current_abs_a, &resistance_ohm);
 
     BoardUart_Printf(BOARD_UART_PORT_DEBUG,
                      "adc %lu: I=%ld nA V=%ld uV R=%ld mOhm\r\n",
@@ -553,7 +558,7 @@ static void App_PrintAdcFilteredSamples(uint32_t count)
 
     current_abs_a = (s_adc_filter_current_a < 0.0f) ? -s_adc_filter_current_a : s_adc_filter_current_a;
     voltage_abs_v = (s_adc_filter_voltage_v < 0.0f) ? -s_adc_filter_voltage_v : s_adc_filter_voltage_v;
-    resistance_ohm = (current_abs_a > 0.000001f) ? (voltage_abs_v / current_abs_a) : 0.0f;
+    (void)ChipMeasure_ComputeExternalResistance(voltage_abs_v, current_abs_a, &resistance_ohm);
 
     BoardUart_Printf(BOARD_UART_PORT_DEBUG,
                      "adcf %lu: I=%ld nA V=%ld uV R=%ld uOhm status current=0x%02X voltage=0x%02X\r\n",
@@ -937,19 +942,12 @@ int main(void)
                      (int)measure_status);
   }
 
-  BoardTemperature_Status temperature_status = BoardTemperature_Init();
-  BoardUart_Printf(BOARD_UART_PORT_DEBUG,
-                   "BoardTemperature_Init: %s (%d)\r\n",
-                   BoardTemperature_StatusText(temperature_status),
-                   (int)temperature_status);
-
   ThermalControl_Status control_status = ThermalControl_Init();
   BoardUart_Printf(BOARD_UART_PORT_DEBUG,
                    "ThermalControl_Init: %s (%d)\r\n",
                    ThermalControl_StatusText(control_status),
                    (int)control_status);
 
-  BoardProtocol_Init();
   App_PrintHelp();
 
   /* USER CODE END 2 */
@@ -993,7 +991,6 @@ int main(void)
       }
     }
 
-    BoardProtocol_Poll();
     (void)ThermalControl_Service(HAL_GetTick());
   }
   /* USER CODE END 3 */
