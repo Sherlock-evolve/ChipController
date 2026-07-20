@@ -2,7 +2,7 @@
 /**
   ******************************************************************************
   * @file    chip_temperature.c
-  * @brief   Chip temperature derived from measured resistance (piecewise R-T table).
+  * @brief   Chip temperature derived from a two-point linear TCR model.
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -11,79 +11,23 @@
 
 #include <stddef.h>
 
-typedef struct
-{
-  float resistance_ohm;
-  float temperature_c;
-} ChipTemperature_Point;
-
-static const ChipTemperature_Point s_chip_temperature_table[] = {
-  {21.0f, -175.0f},
-  {22.0f, -169.0f},
-  {24.0f, -158.0f},
-  {25.0f, -148.0f},
-  {27.0f, -122.0f},
-  {28.0f, -102.0f},
-  {30.0f, -84.0f},
-  {32.0f, -56.0f},
-  {33.0f, -36.0f},
-  {35.0f, -13.0f},
-  {36.0f, 10.0f},
-  {37.0f, 23.0f},
-};
-
-#define CHIP_TEMPERATURE_TABLE_COUNT \
-  (sizeof(s_chip_temperature_table) / sizeof(s_chip_temperature_table[0]))
+/* Two-point model derived from the project-root "tcr" data file.
+ * The two low-temperature measurements are averaged into one endpoint:
+ *   low:       R = 21.434657 Ohm, T = -177.699500 C
+ *   reference: R = 40.230272 Ohm, T =   20.776000 C
+ * R(T) = Rref * (1 + alpha * (T - Tref)). */
+#define CHIP_TEMPERATURE_REFERENCE_RESISTANCE_OHM  40.230272f
+#define CHIP_TEMPERATURE_REFERENCE_TEMPERATURE_C   20.776000f
+#define CHIP_TEMPERATURE_TCR_PER_C                   0.002353946928f
 
 /* Resistance at or below this is treated as "not measurable" (no current). */
 #define CHIP_TEMPERATURE_MIN_RESISTANCE_OHM  0.001f
 
-static float chip_temperature_interpolate(const ChipTemperature_Point *low,
-                                          const ChipTemperature_Point *high,
-                                          float resistance_ohm)
-{
-  float resistance_span_ohm = high->resistance_ohm - low->resistance_ohm;
-  float temperature_span_c = high->temperature_c - low->temperature_c;
-
-  if (resistance_span_ohm == 0.0f)
-  {
-    return low->temperature_c;
-  }
-
-  return low->temperature_c +
-         ((resistance_ohm - low->resistance_ohm) * temperature_span_c / resistance_span_ohm);
-}
-
 float ChipTemperature_FromResistance(float resistance_ohm)
 {
-  size_t index;
-  size_t last_index = CHIP_TEMPERATURE_TABLE_COUNT - 1u;
-
-  if (resistance_ohm <= s_chip_temperature_table[0].resistance_ohm)
-  {
-    return chip_temperature_interpolate(&s_chip_temperature_table[0],
-                                        &s_chip_temperature_table[1],
-                                        resistance_ohm);
-  }
-
-  if (resistance_ohm >= s_chip_temperature_table[last_index].resistance_ohm)
-  {
-    return chip_temperature_interpolate(&s_chip_temperature_table[last_index - 1u],
-                                        &s_chip_temperature_table[last_index],
-                                        resistance_ohm);
-  }
-
-  for (index = 0u; index < last_index; index++)
-  {
-    if (resistance_ohm <= s_chip_temperature_table[index + 1u].resistance_ohm)
-    {
-      return chip_temperature_interpolate(&s_chip_temperature_table[index],
-                                          &s_chip_temperature_table[index + 1u],
-                                          resistance_ohm);
-    }
-  }
-
-  return s_chip_temperature_table[last_index].temperature_c;
+  return CHIP_TEMPERATURE_REFERENCE_TEMPERATURE_C +
+         ((resistance_ohm - CHIP_TEMPERATURE_REFERENCE_RESISTANCE_OHM) /
+          (CHIP_TEMPERATURE_TCR_PER_C * CHIP_TEMPERATURE_REFERENCE_RESISTANCE_OHM));
 }
 
 ChipTemperature_Status ChipTemperature_FromResistanceChecked(float resistance_ohm, float *temperature_c)

@@ -2,7 +2,7 @@
 /**
   ******************************************************************************
   * @file    chip_temperature.h
-  * @brief   Chip temperature derived from measured resistance (linear R-T model).
+  * @brief   Chip temperature derived from measured resistance (two-point TCR model).
   ******************************************************************************
   */
 /* USER CODE END Header */
@@ -24,10 +24,8 @@ typedef enum
 } ChipTemperature_Status;
 
 /**
-  * @brief  Convert chip resistance to temperature using the linear model
-  *           R = R0 * (1 + alpha * (T - T0))
-  *         solved for temperature:
-  *           T = T0 + (R - R0) / (alpha * R0)
+  * @brief  Convert chip resistance to temperature using
+  *           R = Rref * (1 + alpha * (T - Tref)).
   * @param  resistance_ohm  Chip resistance in ohms (must be > 0).
   * @retval Temperature in degrees Celsius.
   */

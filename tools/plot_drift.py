@@ -17,9 +17,12 @@ import csv
 import glob
 import os
 import sys
+import tempfile
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
+os.environ.setdefault("MPLCONFIGDIR", os.path.join(tempfile.gettempdir(), "matplotlib-chipcontroller"))
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -42,13 +45,24 @@ def load(path):
     t, I, V, R = [], [], [], []
     ts0 = None
     with open(path, newline="", encoding="utf-8") as fh:
-        for row in csv.DictReader(fh):
-            if not row["I_nA"]:
+        for index, row in enumerate(csv.DictReader(fh)):
+            if not row.get("I_nA"):
                 continue
-            t.append(float(row["monotonic_s"]))
+            if row.get("monotonic_s"):
+                t.append(float(row["monotonic_s"]))
+            else:
+                try:
+                    t.append(datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M:%S").timestamp())
+                except (KeyError, ValueError):
+                    t.append(float(index))
             I.append(float(row["I_nA"]))
             V.append(float(row["V_uV"]))
-            R.append(float(row["R_Ohm"]) if row["R_Ohm"] else float("nan"))
+            if row.get("R_Ohm"):
+                R.append(float(row["R_Ohm"]))
+            elif row.get("R_uOhm"):
+                R.append(float(row["R_uOhm"]) * 1e-6)
+            else:
+                R.append(float("nan"))
             if ts0 is None:
                 ts0 = row["timestamp"]
     return (np.array(x) for x in (t, I, V, R)), ts0
