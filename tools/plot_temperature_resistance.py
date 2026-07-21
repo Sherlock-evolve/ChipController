@@ -91,6 +91,22 @@ def add_fine_grid(axis):
     axis.tick_params(which="minor", length=3)
 
 
+def set_time_ticks(axis, time_values, time_label):
+    """按记录时长设置更细的时间刻度。"""
+    duration = time_values[-1] - time_values[0]
+    if time_label.endswith("(h)") and duration <= 6.0:
+        axis.xaxis.set_major_locator(MultipleLocator(0.25))  # 15 min
+        axis.xaxis.set_minor_locator(MultipleLocator(0.05))  # 3 min
+    elif time_label.endswith("(min)") and duration <= 120.0:
+        axis.xaxis.set_major_locator(MultipleLocator(5.0))
+        axis.xaxis.set_minor_locator(MultipleLocator(1.0))
+    elif time_label.endswith("(s)") and duration <= 120.0:
+        axis.xaxis.set_major_locator(MultipleLocator(10.0))
+        axis.xaxis.set_minor_locator(MultipleLocator(2.0))
+    else:
+        axis.xaxis.set_minor_locator(AutoMinorLocator(5))
+
+
 def plot_temperature_resistance(temperatures, resistances, output_path, dpi):
     figure, axis = plt.subplots(figsize=(16, 9))
     axis.plot(temperatures, resistances, color="C0", lw=0.45, alpha=0.9)
@@ -119,8 +135,9 @@ def plot_resistance_time(time_values, time_label, resistances, output_path, dpi)
     axis.set_title(f"阻值—时间（{len(resistances)} 条）", fontsize=14)
     axis.set_xlabel(time_label)
     axis.set_ylabel("阻值 (Ω)")
-    axis.xaxis.set_minor_locator(AutoMinorLocator(5))
-    axis.yaxis.set_minor_locator(AutoMinorLocator(5))
+    set_time_ticks(axis, time_values, time_label)
+    axis.yaxis.set_major_locator(MultipleLocator(0.5))
+    axis.yaxis.set_minor_locator(MultipleLocator(0.1))
     axis.xaxis.set_major_formatter(FormatStrFormatter("%.3f"))
     axis.yaxis.set_major_formatter(FormatStrFormatter("%.6f"))
     axis.margins(x=0.01)
