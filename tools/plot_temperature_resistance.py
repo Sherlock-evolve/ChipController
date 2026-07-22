@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""从采集 CSV 分别绘制温度—阻值图和阻值—时间图。"""
+"""从采集 CSV 绘制全程温度曲线和末尾 30 分钟温度细微波动。"""
 
 import argparse
 import csv
@@ -9,7 +9,7 @@ import math
 import os
 import sys
 import tempfile
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 os.environ.setdefault("MPLCONFIGDIR", os.path.join(tempfile.gettempdir(),
@@ -51,25 +51,19 @@ def parse_timestamp(value):
 def load_csv(path):
     timestamps = []
     temperatures = []
-    resistances = []
     with Path(path).open(newline="", encoding="utf-8-sig") as source:
         reader = csv.DictReader(source)
         if not reader.fieldnames or "chip_temp_C" not in reader.fieldnames:
             raise ValueError("CSV 缺少 chip_temp_C 列")
         for row in reader:
             temperature = finite_float(row.get("chip_temp_C"))
-            resistance = finite_float(row.get("R_Ohm"))
-            if resistance is None:
-                resistance_uohm = finite_float(row.get("R_uOhm"))
-                resistance = None if resistance_uohm is None else resistance_uohm * 1e-6
-            if temperature is None or resistance is None:
+            if temperature is None:
                 continue
             timestamps.append(parse_timestamp(row.get("timestamp")))
             temperatures.append(temperature)
-            resistances.append(resistance)
     if not temperatures:
-        raise ValueError("CSV 中没有可绘制的有效温度和阻值")
-    return timestamps, temperatures, resistances
+        raise ValueError("CSV 中没有可绘制的有效温度")
+    return timestamps, temperatures
 
 
 def make_time_axis(timestamps):
@@ -94,7 +88,7 @@ def add_fine_grid(axis):
 def set_time_ticks(axis, time_values, time_label):
     """按记录时长设置更细的时间刻度。"""
     duration = time_values[-1] - time_values[0]
-    if time_label.endswith("(h)") and duration <= 6.0:
+    if time_label.endswith("(h)") and duration <= 12.0:
         axis.xaxis.set_major_locator(MultipleLocator(0.25))  # 15 min
         axis.xaxis.set_minor_locator(MultipleLocator(0.05))  # 3 min
     elif time_label.endswith("(min)") and duration <= 120.0:
@@ -107,39 +101,75 @@ def set_time_ticks(axis, time_values, time_label):
         axis.xaxis.set_minor_locator(AutoMinorLocator(5))
 
 
-def plot_temperature_resistance(temperatures, resistances, output_path, dpi):
+def select_stable_30_minutes(timestamps, temperatures):
+    """取日志末尾 30 分钟；无有效时间戳时按 1 Hz 退化为最后 1801 点。"""
+    if all(timestamp is not None for timestamp in timestamps):
+        cutoff = timestamps[-1] - timedelta(minutes=30)
+        start = next((index for index, timestamp in enumerate(timestamps)
+                      if timestamp >= cutoff), 0)
+    else:
+        start = max(0, len(temperatures) - 1801)
+    return timestamps[start:], temperatures[start:]
+
+
+def nice_major_step(span, target_intervals=8):
+    """为放大图选择易读的 1/2/5 × 10^n 主刻度。"""
+    if span <= 0.0:
+        return 0.001
+    raw_step = span / target_intervals
+    magnitude = 10.0 ** math.floor(math.log10(raw_step))
+    fraction = raw_step / magnitude
+    if fraction <= 1.5:
+        nice_fraction = 1.0
+    elif fraction <= 3.0:
+        nice_fraction = 2.0
+    elif fraction <= 7.0:
+        nice_fraction = 5.0
+    else:
+        nice_fraction = 10.0
+    return nice_fraction * magnitude
+
+
+def plot_temperature_time(time_values, time_label, temperatures, output_path, dpi):
     figure, axis = plt.subplots(figsize=(16, 9))
-    axis.plot(temperatures, resistances, color="C0", lw=0.45, alpha=0.9)
-    axis.scatter(temperatures, resistances, color="C0", s=0.6, alpha=0.22,
+    axis.plot(time_values, temperatures, color="C0", lw=0.55, alpha=0.95)
+    axis.scatter(time_values, temperatures, color="C0", s=0.6, alpha=0.18,
                  rasterized=True)
-    axis.set_title(f"温度—阻值（{len(temperatures)} 条）", fontsize=14)
-    axis.set_xlabel("温度 (°C)")
-    axis.set_ylabel("阻值 (Ω)")
-    axis.xaxis.set_major_locator(MultipleLocator(10.0))
-    axis.xaxis.set_minor_locator(MultipleLocator(2.0))
-    axis.yaxis.set_major_locator(MultipleLocator(1.0))
-    axis.yaxis.set_minor_locator(MultipleLocator(0.2))
+    axis.set_title(f"温度—时间（{len(temperatures)} 条）", fontsize=14)
+    axis.set_xlabel(time_label)
+    axis.set_ylabel("温度 (°C)")
+    set_time_ticks(axis, time_values, time_label)
+    axis.yaxis.set_major_locator(MultipleLocator(5.0))
+    axis.yaxis.set_minor_locator(MultipleLocator(1.0))
     axis.xaxis.set_major_formatter(FormatStrFormatter("%.3f"))
-    axis.yaxis.set_major_formatter(FormatStrFormatter("%.6f"))
+    axis.yaxis.set_major_formatter(FormatStrFormatter("%.3f"))
+    axis.margins(x=0.01)
     add_fine_grid(axis)
     figure.tight_layout()
     figure.savefig(output_path, dpi=dpi)
     plt.close(figure)
 
 
-def plot_resistance_time(time_values, time_label, resistances, output_path, dpi):
+def plot_stable_temperature(time_values, time_label, temperatures, output_path, dpi):
     figure, axis = plt.subplots(figsize=(16, 9))
-    axis.plot(time_values, resistances, color="C1", lw=0.55, alpha=0.95)
-    axis.scatter(time_values, resistances, color="C1", s=0.6, alpha=0.18,
+    axis.plot(time_values, temperatures, color="C1", lw=0.65, alpha=0.95)
+    axis.scatter(time_values, temperatures, color="C1", s=1.0, alpha=0.22,
                  rasterized=True)
-    axis.set_title(f"阻值—时间（{len(resistances)} 条）", fontsize=14)
+    temperature_min = min(temperatures)
+    temperature_max = max(temperatures)
+    temperature_span = temperature_max - temperature_min
+    axis.set_title(f"温度稳定后 30 分钟细微波动（{len(temperatures)} 条，"
+                   f"峰峰值 {temperature_span:.6f} °C）", fontsize=14)
     axis.set_xlabel(time_label)
-    axis.set_ylabel("阻值 (Ω)")
+    axis.set_ylabel("温度 (°C)")
     set_time_ticks(axis, time_values, time_label)
-    axis.yaxis.set_major_locator(MultipleLocator(0.5))
-    axis.yaxis.set_minor_locator(MultipleLocator(0.1))
+    major_step = nice_major_step(temperature_span)
+    axis.yaxis.set_major_locator(MultipleLocator(major_step))
+    axis.yaxis.set_minor_locator(MultipleLocator(major_step / 5.0))
     axis.xaxis.set_major_formatter(FormatStrFormatter("%.3f"))
     axis.yaxis.set_major_formatter(FormatStrFormatter("%.6f"))
+    padding = max(temperature_span * 0.08, major_step * 0.5)
+    axis.set_ylim(temperature_min - padding, temperature_max + padding)
     axis.margins(x=0.01)
     add_fine_grid(axis)
     figure.tight_layout()
@@ -149,7 +179,7 @@ def plot_resistance_time(time_values, time_label, resistances, output_path, dpi)
 
 def main():
     project_root = Path(__file__).resolve().parents[1]
-    parser = argparse.ArgumentParser(description="绘制温度—阻值图和阻值—时间图")
+    parser = argparse.ArgumentParser(description="绘制全程温度图和稳定后 30 分钟温度波动图")
     parser.add_argument("-i", "--input", help="采集 CSV（默认查找最新 adcf_log_*.csv）")
     parser.add_argument("-o", "--output-prefix",
                         help="输出文件前缀（默认使用输入 CSV 文件名）")
@@ -161,19 +191,22 @@ def main():
         sys.exit("找不到 adcf_log_*.csv，请用 -i 指定")
     input_path = Path(input_name)
     output_prefix = Path(args.output_prefix) if args.output_prefix else input_path.with_suffix("")
-    temperature_output = Path(str(output_prefix) + "_temperature_resistance.png")
-    time_output = Path(str(output_prefix) + "_resistance_time.png")
+    time_output = Path(str(output_prefix) + "_temperature_time.png")
+    stable_output = Path(str(output_prefix) + "_temperature_stable_30min.png")
 
     try:
-        timestamps, temperatures, resistances = load_csv(input_path)
+        timestamps, temperatures = load_csv(input_path)
     except (OSError, ValueError) as exc:
         sys.exit(str(exc))
     time_values, time_label = make_time_axis(timestamps)
+    stable_timestamps, stable_temperatures = select_stable_30_minutes(timestamps, temperatures)
+    stable_time_values, stable_time_label = make_time_axis(stable_timestamps)
 
-    plot_temperature_resistance(temperatures, resistances, temperature_output, args.dpi)
-    plot_resistance_time(time_values, time_label, resistances, time_output, args.dpi)
-    print(f"saved: {temperature_output}")
+    plot_temperature_time(time_values, time_label, temperatures, time_output, args.dpi)
+    plot_stable_temperature(stable_time_values, stable_time_label,
+                            stable_temperatures, stable_output, args.dpi)
     print(f"saved: {time_output}")
+    print(f"saved: {stable_output}")
 
 
 if __name__ == "__main__":
