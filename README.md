@@ -158,6 +158,7 @@ ChipController V1.0.0/
 - 串口连接 / 波特率选择
 - 恒流 / 恒温设定与一键停止归零
 - 周期性滤波采样流（带看门狗超时释放）
+- 实验 CSV 日志：选择文件、开始/停止、样本/超时计数、逐行刷新防止长时间实验丢失
 - 实时数据面板：电流、电压、外接电阻、ADC 状态、控制模式、驱动电压、芯片温度、目标温度、温度误差
 - 多通道趋势图（电流 / 电压 / 电阻 / 温度 / 驱动，900 点滚动窗口，可逐曲线显隐）
 - 诊断日志面板
@@ -168,6 +169,11 @@ ChipController V1.0.0/
 pip install PySide6 pyserial
 python3 host_qt/chip_controller_gui.py
 ```
+
+“开始记录”会自动启动滤波采样。CSV 的前六列与 `tools/adcf_logger.py`
+兼容（`timestamp,I_nA,V_uV,R_uOhm,chip_temp_C,note`），并额外保存 ADC
+状态、控制模式、目标/实测电流、目标/实测温度、温度误差、积分项、驱动电压和功率。
+`tools/plot_temperature_resistance.py` 可以直接读取 GUI 生成的日志。
 
 ---
 
@@ -232,7 +238,7 @@ ChipController 采用两层校准，互不替代：
 
 | 脚本 | 用途 |
 | --- | --- |
-| `adcf_logger.py` | 每隔 N 秒发送 `adcf 1`，解析 I/V/R 并追加写入 CSV，用于长期温漂采集 |
+| `adcf_logger.py` | 无 GUI 环境下的采集备用方案；每隔 N 秒发送 `adcf 1` 并写入兼容 CSV |
 | `plot_drift.py` | 读取漂移 CSV，以「偏离全程均值的 ppm」绘制温漂趋势（含小时均值与线性拟合） |
 | `plot_mutiR.py` | 解析多点电阻日志，按电流设定绘制线性度曲线，并匹配 DAQ6510 参考值 |
 | `plot_verify.py` | 解析电流扫描日志，验证恒流精度与电阻测量一致性 |

@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 from collections import deque
+import csv
+from datetime import datetime
+from pathlib import Path
 import re
 import sys
 import time
@@ -14,11 +17,13 @@ from PySide6.QtWidgets import (
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
+    QFileDialog,
     QFormLayout,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QLineEdit,
     QMainWindow,
     QMessageBox,
     QPushButton,
@@ -34,6 +39,36 @@ CSV_HEADER = "index,tick_ms,status,current_nA,voltage_uV,resistance_mOhm,current
 CHIP_COMMAND_CHAR_DELAY_MS = 5
 ADC_FILTER_SAMPLE_COUNT = 1
 TREND_MAX_POINTS = 900
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+CHIP_TEMPERATURE_REFERENCE_RESISTANCE_OHM = 40.230272
+CHIP_TEMPERATURE_REFERENCE_TEMPERATURE_C = 20.776
+CHIP_TEMPERATURE_TCR_PER_C = 0.002353946928
+
+EXPERIMENT_LOG_FIELDS = [
+    "timestamp",
+    "I_nA",
+    "V_uV",
+    "R_uOhm",
+    "chip_temp_C",
+    "note",
+    "elapsed_s",
+    "current_adc_status",
+    "voltage_adc_status",
+    "control_mode",
+    "control_enabled",
+    "control_fault",
+    "control_status",
+    "target_current_mA",
+    "measured_current_mA",
+    "measured_voltage_mV",
+    "measured_resistance_ohm",
+    "target_temp_C",
+    "measured_temp_C",
+    "temperature_error_C",
+    "temperature_integral_mA",
+    "drive_mV",
+    "power_uW",
+]
 
 
 @dataclass
@@ -329,6 +364,83 @@ def parse_csv_sample(line):
         return None
 
 
+def chip_temperature_from_resistance(resistance_ohm):
+    if resistance_ohm is None or resistance_ohm <= 0.0:
+        return None
+    return CHIP_TEMPERATURE_REFERENCE_TEMPERATURE_C + (
+        resistance_ohm - CHIP_TEMPERATURE_REFERENCE_RESISTANCE_OHM
+    ) / (
+        CHIP_TEMPERATURE_TCR_PER_C * CHIP_TEMPERATURE_REFERENCE_RESISTANCE_OHM
+    )
+
+
+class ExperimentCsvLogger:
+    def __init__(self):
+        self._file = None
+        self._writer = None
+        self.path = None
+        self.started_monotonic = None
+        self.sample_count = 0
+        self.missed_count = 0
+
+    @property
+    def active(self):
+        return self._file is not None
+
+    def start(self, path):
+        if self.active:
+            raise RuntimeError("实验日志已经在记录")
+
+        output_path = Path(path).expanduser()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_file = output_path.open("w", newline="", encoding="utf-8-sig", buffering=1)
+        writer = csv.DictWriter(
+            output_file,
+            fieldnames=EXPERIMENT_LOG_FIELDS,
+            extrasaction="ignore",
+        )
+        try:
+            writer.writeheader()
+            output_file.flush()
+        except Exception:
+            output_file.close()
+            raise
+
+        self._file = output_file
+        self._writer = writer
+        self.path = output_path
+        self.started_monotonic = time.monotonic()
+        self.sample_count = 0
+        self.missed_count = 0
+
+    def append(self, values, missed=False):
+        if not self.active:
+            raise RuntimeError("实验日志尚未开始")
+
+        row = {field: "" for field in EXPERIMENT_LOG_FIELDS}
+        row.update(values)
+        row["timestamp"] = datetime.now().isoformat(sep=" ", timespec="milliseconds")
+        row["elapsed_s"] = f"{time.monotonic() - self.started_monotonic:.3f}"
+        self._writer.writerow(row)
+        self._file.flush()
+
+        if missed:
+            self.missed_count += 1
+        else:
+            self.sample_count += 1
+
+    def close(self):
+        output_file = self._file
+        self._file = None
+        self._writer = None
+        self.started_monotonic = None
+        if output_file is not None:
+            try:
+                output_file.flush()
+            finally:
+                output_file.close()
+
+
 class ChipAsciiClient(QObject):
     connectedChanged = Signal(bool)
     logLine = Signal(str)
@@ -549,6 +661,9 @@ class MainWindow(QMainWindow):
 
         self.chip = ChipAsciiClient(self)
         self.telemetry_values = {}
+        self.control_values = {}
+        self.experiment_logger = ExperimentCsvLogger()
+        self._record_path_custom = False
         self._build_ui()
         self._connect_signals()
         self.refresh_ports()
@@ -563,6 +678,9 @@ class MainWindow(QMainWindow):
         self.status_timer.timeout.connect(self._poll_chip_status)
         self.status_timer.start(2000)
 
+        self.record_status_timer = QTimer(self)
+        self.record_status_timer.timeout.connect(self._update_record_status)
+
     def _build_ui(self):
         root = QWidget()
         self.setCentralWidget(root)
@@ -574,6 +692,8 @@ class MainWindow(QMainWindow):
         layout.addLayout(top)
 
         layout.addWidget(self._build_measure_group())
+
+        layout.addWidget(self._build_record_group())
 
         layout.addWidget(self._build_trend_tabs(), 1)
 
@@ -711,6 +831,35 @@ class MainWindow(QMainWindow):
             grid.addWidget(widget, row, col + 1)
         return group
 
+    def _build_record_group(self):
+        group = QGroupBox("实验数据记录")
+        form = QFormLayout(group)
+
+        self.record_path = QLineEdit(str(self._suggest_log_path()))
+        self.record_path.setToolTip("CSV 文件兼容 tools/adcf_logger.py 与现有温度绘图脚本")
+        self.record_browse = QPushButton("选择文件")
+
+        path_row = QHBoxLayout()
+        path_row.addWidget(self.record_path, 1)
+        path_row.addWidget(self.record_browse)
+        form.addRow("CSV 文件", path_row)
+
+        self.record_note = QLineEdit()
+        self.record_note.setPlaceholderText("可选；当前内容会写入每条记录的 note 列")
+        form.addRow("实验备注", self.record_note)
+
+        self.start_recording = QPushButton("开始记录")
+        self.stop_recording = QPushButton("停止记录")
+        self.stop_recording.setEnabled(False)
+        self.record_status = QLabel("未记录")
+
+        action_row = QHBoxLayout()
+        action_row.addWidget(self.start_recording)
+        action_row.addWidget(self.stop_recording)
+        action_row.addWidget(self.record_status, 1)
+        form.addRow("记录状态", action_row)
+        return group
+
     def _connect_signals(self):
         self.chip_refresh.clicked.connect(self.refresh_ports)
         self.chip_connect.clicked.connect(self._toggle_chip)
@@ -719,7 +868,12 @@ class MainWindow(QMainWindow):
         self.stop_current.clicked.connect(self._stop_current)
         self.start_stream.clicked.connect(self._start_stream)
         self.stop_stream.clicked.connect(self._stop_stream)
+        self.filter_period.valueChanged.connect(self._filter_period_changed)
         self.clear_trend.clicked.connect(self._clear_trend)
+        self.record_browse.clicked.connect(self._choose_record_path)
+        self.record_path.textEdited.connect(self._record_path_edited)
+        self.start_recording.clicked.connect(self._start_recording)
+        self.stop_recording.clicked.connect(self._stop_recording)
 
         self.chip.connectedChanged.connect(self._chip_connected_changed)
         self.chip.logLine.connect(self._append_log)
@@ -757,6 +911,10 @@ class MainWindow(QMainWindow):
     def _chip_connected_changed(self, connected):
         self.chip_connect.setText("断开" if connected else "连接")
         self._append_log("ChipController connected" if connected else "ChipController disconnected")
+        if not connected:
+            self.adc_filter_timer.stop()
+            self.adc_filter_watchdog.stop()
+            self._finish_recording("串口已断开")
 
     def _set_current(self):
         target_ma = self.current_ma.value()
@@ -777,6 +935,9 @@ class MainWindow(QMainWindow):
             self._record_telemetry(target_current_ma=0.0, target_temp_c=0.0, drive_mv=0.0)
 
     def _start_stream(self):
+        if not self.chip.is_open():
+            QMessageBox.warning(self, "滤波采样", "请先连接 ChipController 串口")
+            return
         self.chip.stop_stream()
         self._request_filtered_adc()
         self.adc_filter_timer.start(self.filter_period.value())
@@ -785,6 +946,12 @@ class MainWindow(QMainWindow):
         self.adc_filter_timer.stop()
         self.adc_filter_watchdog.stop()
         self.chip.stop_stream()
+        if self.experiment_logger.active:
+            self._finish_recording("滤波采样已停止")
+
+    def _filter_period_changed(self, period_ms):
+        if self.adc_filter_timer.isActive():
+            self.adc_filter_timer.setInterval(period_ms)
 
     def _request_filtered_adc(self):
         if self.chip.is_open():
@@ -794,11 +961,13 @@ class MainWindow(QMainWindow):
     def _adcf_timeout(self):
         self.chip.clear_filtered_adc_pending()
         self._append_log("adcf timeout: previous filtered sample request was released")
+        self._write_experiment_timeout()
 
     def _poll_chip_status(self):
         if self.poll_status.isChecked() and self.chip.is_open():
             self.chip.request_status()
-            self.chip.request_temperature()
+            if not self.adc_filter_timer.isActive():
+                self.chip.request_temperature()
 
     @Slot(str)
     def _append_log(self, line):
@@ -807,6 +976,192 @@ class MainWindow(QMainWindow):
     def _clear_trend(self):
         self.telemetry_values.clear()
         self.trend_plot.clear()
+
+    @staticmethod
+    def _suggest_log_path():
+        base = PROJECT_ROOT / f"adcf_log_{datetime.now():%Y%m%d_%H%M%S}.csv"
+        if not base.exists():
+            return base
+        for index in range(1, 1000):
+            candidate = base.with_name(f"{base.stem}_{index}.csv")
+            if not candidate.exists():
+                return candidate
+        return base.with_name(f"{base.stem}_{time.time_ns()}.csv")
+
+    def _record_path_edited(self, _text):
+        self._record_path_custom = True
+
+    def _choose_record_path(self):
+        selected, _ = QFileDialog.getSaveFileName(
+            self,
+            "选择实验 CSV 文件",
+            self.record_path.text().strip() or str(self._suggest_log_path()),
+            "CSV 文件 (*.csv);;所有文件 (*)",
+        )
+        if selected:
+            if not selected.lower().endswith(".csv"):
+                selected += ".csv"
+            self.record_path.setText(selected)
+            self._record_path_custom = True
+
+    def _start_recording(self):
+        if self.experiment_logger.active:
+            return
+        if not self.chip.is_open():
+            QMessageBox.warning(self, "实验记录", "请先连接 ChipController 串口")
+            return
+
+        path_text = self.record_path.text().strip()
+        if not path_text:
+            path_text = str(self._suggest_log_path())
+            self.record_path.setText(path_text)
+        output_path = Path(path_text).expanduser()
+
+        if output_path.exists():
+            answer = QMessageBox.question(
+                self,
+                "覆盖实验日志",
+                f"文件已经存在，是否覆盖？\n{output_path}",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No,
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                return
+
+        try:
+            self.experiment_logger.start(output_path)
+        except (OSError, RuntimeError) as exc:
+            QMessageBox.critical(self, "无法开始记录", str(exc))
+            return
+
+        self.record_path.setEnabled(False)
+        self.record_browse.setEnabled(False)
+        self.start_recording.setEnabled(False)
+        self.stop_recording.setEnabled(True)
+        self.record_status_timer.start(1000)
+        self._update_record_status()
+        self._append_log(f"实验记录开始: {output_path}")
+
+        if not self.adc_filter_timer.isActive():
+            self._start_stream()
+
+    def _stop_recording(self):
+        self._finish_recording("用户停止")
+
+    def _finish_recording(self, reason):
+        if not self.experiment_logger.active:
+            return
+
+        path = self.experiment_logger.path
+        samples = self.experiment_logger.sample_count
+        missed = self.experiment_logger.missed_count
+        try:
+            self.experiment_logger.close()
+        except OSError as exc:
+            self._append_log(f"实验日志关闭失败: {exc}")
+
+        self.record_status_timer.stop()
+        self.record_path.setEnabled(True)
+        self.record_browse.setEnabled(True)
+        self.start_recording.setEnabled(True)
+        self.stop_recording.setEnabled(False)
+        self.record_status.setText(f"已停止：{samples} 条，{missed} 次超时")
+        self.record_status.setToolTip(str(path))
+        self._append_log(
+            f"实验记录结束: {path}，成功={samples}，超时={missed}，原因={reason}"
+        )
+
+        if not self._record_path_custom:
+            self.record_path.setText(str(self._suggest_log_path()))
+
+    def _update_record_status(self):
+        if not self.experiment_logger.active:
+            return
+        elapsed = max(0, int(time.monotonic() - self.experiment_logger.started_monotonic))
+        hours, remainder = divmod(elapsed, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        self.record_status.setText(
+            f"记录中 {hours:02d}:{minutes:02d}:{seconds:02d}，"
+            f"{self.experiment_logger.sample_count} 条，"
+            f"{self.experiment_logger.missed_count} 次超时"
+        )
+        self.record_status.setToolTip(str(self.experiment_logger.path))
+
+    @staticmethod
+    def _scaled_control_value(values, key, scale):
+        value = values.get(key)
+        if value is None:
+            return ""
+        try:
+            return int(value) / scale
+        except (TypeError, ValueError):
+            return ""
+
+    def _control_log_values(self):
+        values = self.control_values
+        return {
+            "control_mode": values.get("mode", ""),
+            "control_enabled": values.get("enabled", ""),
+            "control_fault": values.get("fault", ""),
+            "control_status": values.get("status", ""),
+            "target_current_mA": self._scaled_control_value(values, "target_current_uA", 1000.0),
+            "measured_current_mA": self._scaled_control_value(values, "measured_current_uA", 1000.0),
+            "measured_voltage_mV": self._scaled_control_value(values, "measured_voltage_mV", 1.0),
+            "measured_resistance_ohm": self._scaled_control_value(
+                values, "measured_resistance_mOhm", 1000.0
+            ),
+            "target_temp_C": self._scaled_control_value(values, "target_temp_mC", 1000.0),
+            "measured_temp_C": self._scaled_control_value(values, "measured_temp_mC", 1000.0),
+            "temperature_error_C": self._scaled_control_value(
+                values, "temperature_error_mC", 1000.0
+            ),
+            "temperature_integral_mA": self._scaled_control_value(
+                values, "temperature_integral_uA", 1000.0
+            ),
+            "drive_mV": self._scaled_control_value(values, "target_drive_mV", 1.0),
+            "power_uW": self._scaled_control_value(values, "measured_power_uW", 1.0),
+        }
+
+    def _combined_record_note(self, system_note=""):
+        parts = [part for part in (system_note, self.record_note.text().strip()) if part]
+        return "; ".join(parts)
+
+    def _write_experiment_sample(self, sample, chip_temp_c):
+        if not self.experiment_logger.active:
+            return
+
+        values = {
+            "I_nA": sample.current_na,
+            "V_uV": sample.voltage_uv,
+            "R_uOhm": sample.resistance_uohm,
+            "chip_temp_C": "" if chip_temp_c is None else f"{chip_temp_c:.6f}",
+            "note": self._combined_record_note(),
+            "current_adc_status": f"0x{sample.current_adc_status:02X}",
+            "voltage_adc_status": f"0x{sample.voltage_adc_status:02X}",
+        }
+        values.update(self._control_log_values())
+        try:
+            self.experiment_logger.append(values)
+        except (OSError, RuntimeError) as exc:
+            self._finish_recording("写入失败")
+            QMessageBox.critical(self, "实验日志写入失败", str(exc))
+            return
+        self._update_record_status()
+
+    def _write_experiment_timeout(self):
+        if not self.experiment_logger.active:
+            return
+        values = {
+            "note": self._combined_record_note("timeout/no-match"),
+        }
+        values.update(self._control_log_values())
+        try:
+            self.experiment_logger.append(values, missed=True)
+        except (OSError, RuntimeError) as exc:
+            self._finish_recording("写入失败")
+            QMessageBox.critical(self, "实验日志写入失败", str(exc))
+            return
+        self._update_record_status()
 
     def _record_telemetry(self, **updates):
         changed = False
@@ -845,24 +1200,31 @@ class MainWindow(QMainWindow):
     @Slot(object)
     def _update_filtered_sample(self, sample):
         self.adc_filter_watchdog.stop()
+        resistance_ohm = sample.resistance_uohm / 1_000_000.0
+        chip_temp_c = chip_temperature_from_resistance(resistance_ohm)
         self.current_label.setText(
             f"{sample.current_na / 1_000_000.0:.6f} mA  ({sample.current_na} nA)"
         )
         self.voltage_label.setText(
             f"{sample.voltage_uv / 1000.0:.3f} mV  ({sample.voltage_uv} uV)"
         )
-        self.resistance_label.setText(f"{sample.resistance_uohm / 1_000_000.0:.6f} ohm")
+        self.resistance_label.setText(f"{resistance_ohm:.6f} ohm")
         self.adc_status_label.setText(
             f"current=0x{sample.current_adc_status:02X}, voltage=0x{sample.voltage_adc_status:02X}"
         )
+        if chip_temp_c is not None:
+            self.chip_temp.setText(f"{chip_temp_c:.3f} C")
         self._record_telemetry(
             current_ma=sample.current_na / 1_000_000.0,
             voltage_mv=sample.voltage_uv / 1000.0,
-            resistance_ohm=sample.resistance_uohm / 1_000_000.0,
+            resistance_ohm=resistance_ohm,
+            chip_temp_c=chip_temp_c,
         )
+        self._write_experiment_sample(sample, chip_temp_c)
 
     @Slot(dict)
     def _update_control_status(self, values):
+        self.control_values.update(values)
         mode = values.get("mode")
         enabled = values.get("enabled")
         fault = values.get("fault")
@@ -917,6 +1279,14 @@ class MainWindow(QMainWindow):
             self.chip_temp.setText("--")
 
         self._record_telemetry(chip_temp_c=chip_temp_c)
+
+    def closeEvent(self, event):
+        self._finish_recording("窗口关闭")
+        self.adc_filter_timer.stop()
+        self.adc_filter_watchdog.stop()
+        self.status_timer.stop()
+        self.chip.close()
+        event.accept()
 
 
 def main():
