@@ -215,7 +215,8 @@ class TrendPlotWidget(QWidget):
     def _draw_band(self, painter, area, band_label, unit, zero_based, band_series, x_min, x_max):
         values = []
         for series in band_series:
-            values.extend(value for _, value in self._series_points(series.key))
+            for segment in self._series_segments(series.key):
+                values.extend(value for _, value in segment)
 
         painter.setPen(QPen(QColor("#D0D7E2"), 1))
         painter.setBrush(QColor("#FBFCFE"))
@@ -276,39 +277,42 @@ class TrendPlotWidget(QWidget):
             )
 
         for series in band_series:
-            points = []
-            for timestamp, value in self._series_points(series.key):
-                x = area.left() + (timestamp - x_min) / (x_max - x_min) * area.width()
-                y = area.bottom() - (value - y_min) / (y_max - y_min) * area.height()
-                points.append(QPointF(x, y))
-
-            if not points:
-                continue
-
             pen = QPen(QColor(series.color), 2)
             if series.dashed:
                 pen.setStyle(Qt.DashLine)
             painter.setPen(pen)
-            if len(points) == 1:
-                painter.drawEllipse(points[0], 3.0, 3.0)
-            else:
-                for point_index in range(1, len(points)):
-                    painter.drawLine(points[point_index - 1], points[point_index])
+            for segment in self._series_segments(series.key):
+                points = []
+                for timestamp, value in segment:
+                    x = area.left() + (timestamp - x_min) / (x_max - x_min) * area.width()
+                    y = area.bottom() - (value - y_min) / (y_max - y_min) * area.height()
+                    points.append(QPointF(x, y))
 
-    def _series_points(self, key):
-        points = []
+                if len(points) == 1:
+                    painter.drawEllipse(points[0], 3.0, 3.0)
+                else:
+                    for point_index in range(1, len(points)):
+                        painter.drawLine(points[point_index - 1], points[point_index])
+
+    def _series_segments(self, key):
+        segments = []
+        segment = []
         for timestamp, values in self._samples:
             value = values.get(key)
-            if value is not None:
-                points.append((timestamp, value))
-        return points
+            if value is None:
+                if segment:
+                    segments.append(segment)
+                    segment = []
+                continue
+            segment.append((timestamp, value))
+        if segment:
+            segments.append(segment)
+        return segments
 
     def _latest_value(self, key):
-        for _, values in reversed(self._samples):
-            value = values.get(key)
-            if value is not None:
-                return value
-        return None
+        if not self._samples:
+            return None
+        return self._samples[-1][1].get(key)
 
     @staticmethod
     def _format_value(value, decimals):
@@ -920,19 +924,19 @@ class MainWindow(QMainWindow):
         target_ma = self.current_ma.value()
         self.chip.set_current_ma(target_ma)
         if self.chip.is_open():
-            self._record_telemetry(target_current_ma=target_ma)
+            self._set_local_control_mode("CURRENT", target_current_ma=target_ma)
 
     def _set_temperature(self):
         target_c = self.temperature_c.value()
         self.chip.set_temperature_c(target_c)
         if self.chip.is_open():
-            self._record_telemetry(target_temp_c=target_c)
+            self._set_local_control_mode("TEMPERATURE", target_temp_c=target_c)
 
     def _stop_current(self):
         self.chip.stop_control()
         self.chip.send_command("zero")
         if self.chip.is_open():
-            self._record_telemetry(target_current_ma=0.0, target_temp_c=0.0, drive_mv=0.0)
+            self._set_local_control_mode("OFF", drive_mv=0.0)
 
     def _start_stream(self):
         if not self.chip.is_open():
@@ -1099,24 +1103,39 @@ class MainWindow(QMainWindow):
 
     def _control_log_values(self):
         values = self.control_values
+        mode = str(values.get("mode", "")).upper()
+        temperature_mode = mode == "TEMPERATURE"
+        active_mode = mode in ("CURRENT", "TEMPERATURE")
         return {
             "control_mode": values.get("mode", ""),
             "control_enabled": values.get("enabled", ""),
             "control_fault": values.get("fault", ""),
             "control_status": values.get("status", ""),
-            "target_current_mA": self._scaled_control_value(values, "target_current_uA", 1000.0),
+            "target_current_mA": (
+                self._scaled_control_value(values, "target_current_uA", 1000.0)
+                if active_mode
+                else ""
+            ),
             "measured_current_mA": self._scaled_control_value(values, "measured_current_uA", 1000.0),
             "measured_voltage_mV": self._scaled_control_value(values, "measured_voltage_mV", 1.0),
             "measured_resistance_ohm": self._scaled_control_value(
                 values, "measured_resistance_mOhm", 1000.0
             ),
-            "target_temp_C": self._scaled_control_value(values, "target_temp_mC", 1000.0),
-            "measured_temp_C": self._scaled_control_value(values, "measured_temp_mC", 1000.0),
-            "temperature_error_C": self._scaled_control_value(
-                values, "temperature_error_mC", 1000.0
+            "target_temp_C": (
+                self._scaled_control_value(values, "target_temp_mC", 1000.0)
+                if temperature_mode
+                else ""
             ),
-            "temperature_integral_mA": self._scaled_control_value(
-                values, "temperature_integral_uA", 1000.0
+            "measured_temp_C": self._scaled_control_value(values, "measured_temp_mC", 1000.0),
+            "temperature_error_C": (
+                self._scaled_control_value(values, "temperature_error_mC", 1000.0)
+                if temperature_mode
+                else ""
+            ),
+            "temperature_integral_mA": (
+                self._scaled_control_value(values, "temperature_integral_uA", 1000.0)
+                if temperature_mode
+                else ""
             ),
             "drive_mV": self._scaled_control_value(values, "target_drive_mV", 1.0),
             "power_uW": self._scaled_control_value(values, "measured_power_uW", 1.0),
@@ -1163,8 +1182,12 @@ class MainWindow(QMainWindow):
             return
         self._update_record_status()
 
-    def _record_telemetry(self, **updates):
+    def _record_telemetry(self, clear_keys=(), **updates):
         changed = False
+        for key in clear_keys:
+            if key in self.telemetry_values:
+                del self.telemetry_values[key]
+                changed = True
         for key, value in updates.items():
             if value is None:
                 continue
@@ -1175,6 +1198,59 @@ class MainWindow(QMainWindow):
             changed = True
         if changed:
             self.trend_plot.add_sample(self.telemetry_values)
+
+    def _set_local_control_mode(
+        self,
+        mode,
+        target_current_ma=None,
+        target_temp_c=None,
+        drive_mv=None,
+    ):
+        mode = str(mode).upper()
+        self.control_values["mode"] = mode
+
+        if mode == "CURRENT":
+            for key in ("target_temp_mC", "temperature_error_mC", "temperature_integral_uA"):
+                self.control_values.pop(key, None)
+            if target_current_ma is not None:
+                self.control_values["target_current_uA"] = str(round(target_current_ma * 1000.0))
+            self.target_temp.setText("--")
+            self.temperature_error.setText("--")
+            self._record_telemetry(
+                clear_keys=("target_temp_c",),
+                target_current_ma=target_current_ma,
+                drive_mv=drive_mv,
+            )
+            return
+
+        if mode == "TEMPERATURE":
+            self.control_values.pop("target_current_uA", None)
+            self.control_values.pop("temperature_error_mC", None)
+            self.control_values.pop("temperature_integral_uA", None)
+            if target_temp_c is not None:
+                self.control_values["target_temp_mC"] = str(round(target_temp_c * 1000.0))
+                self.target_temp.setText(f"{target_temp_c:.3f} C")
+            self.temperature_error.setText("--")
+            self._record_telemetry(
+                clear_keys=("target_current_ma",),
+                target_temp_c=target_temp_c,
+                drive_mv=drive_mv,
+            )
+            return
+
+        for key in (
+            "target_current_uA",
+            "target_temp_mC",
+            "temperature_error_mC",
+            "temperature_integral_uA",
+        ):
+            self.control_values.pop(key, None)
+        self.target_temp.setText("--")
+        self.temperature_error.setText("--")
+        self._record_telemetry(
+            clear_keys=("target_current_ma", "target_temp_c"),
+            drive_mv=drive_mv,
+        )
 
     @staticmethod
     def _int_value(value):
@@ -1224,12 +1300,36 @@ class MainWindow(QMainWindow):
 
     @Slot(dict)
     def _update_control_status(self, values):
+        values = dict(values)
+        mode = str(values.get("mode", self.control_values.get("mode", ""))).upper()
+        if mode == "CURRENT":
+            inactive_control_keys = (
+                "target_temp_mC",
+                "temperature_error_mC",
+                "temperature_integral_uA",
+            )
+            inactive_telemetry_keys = ("target_temp_c",)
+        elif mode == "OFF":
+            inactive_control_keys = (
+                "target_current_uA",
+                "target_temp_mC",
+                "temperature_error_mC",
+                "temperature_integral_uA",
+            )
+            inactive_telemetry_keys = ("target_current_ma", "target_temp_c")
+        else:
+            inactive_control_keys = ()
+            inactive_telemetry_keys = ()
+
+        for key in inactive_control_keys:
+            values.pop(key, None)
+            self.control_values.pop(key, None)
         self.control_values.update(values)
-        mode = values.get("mode")
+
         enabled = values.get("enabled")
         fault = values.get("fault")
         status = values.get("status")
-        if mode is not None:
+        if mode:
             self.control_mode.setText(f"{mode}, enabled={enabled}, fault={fault}, status={status}")
 
         drive = values.get("target_drive_mV") or values.get("drive") or values.get("drive_mV")
@@ -1245,14 +1345,19 @@ class MainWindow(QMainWindow):
         temperature_error_mc = self._int_value(values.get("temperature_error_mC"))
         drive_mv = self._int_value(drive)
 
-        if target_temp_mc is not None:
+        if mode == "TEMPERATURE" and target_temp_mc is not None:
             self.target_temp.setText(f"{target_temp_mc / 1000.0:.3f} C")
+        elif mode in ("CURRENT", "OFF"):
+            self.target_temp.setText("--")
         if measured_temp_mc is not None:
             self.chip_temp.setText(f"{measured_temp_mc / 1000.0:.3f} C")
-        if temperature_error_mc is not None:
+        if mode == "TEMPERATURE" and temperature_error_mc is not None:
             self.temperature_error.setText(f"{temperature_error_mc / 1000.0:.3f} C")
+        elif mode in ("CURRENT", "OFF"):
+            self.temperature_error.setText("--")
 
         self._record_telemetry(
+            clear_keys=inactive_telemetry_keys,
             target_current_ma=None if target_current_ua is None else target_current_ua / 1000.0,
             current_ma=None if measured_current_ua is None else measured_current_ua / 1000.0,
             voltage_mv=measured_voltage_mv,

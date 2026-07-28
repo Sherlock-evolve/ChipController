@@ -36,6 +36,7 @@ static ThermalControl_Snapshot s_snapshot = {
 
 static uint32_t s_last_service_ms;
 static ChipMeasure_SyncFilter s_measure_filter;
+static uint8_t s_temperature_bumpless_pending;
 
 static ThermalControl_Status thermal_control_measure(float *current_a,
                                                      float *load_voltage_v,
@@ -49,6 +50,7 @@ static ThermalControl_Status thermal_control_apply_drive(float drive_v);
 static ThermalControl_Status thermal_control_zero_output(void);
 static ThermalControl_Status thermal_control_fault(ThermalControl_Status status);
 static float thermal_control_temperature_pi(float error_c, float dt_s);
+static float thermal_control_temperature_bumpless(float error_c, float current_a);
 static void thermal_control_reset_temperature_pi(void);
 static float thermal_control_absf(float value);
 static float thermal_control_clampf(float value, float min_value, float max_value);
@@ -75,6 +77,7 @@ ThermalControl_Status ThermalControl_Init(void)
   s_snapshot.resistance_ohm = 0.0f;
   s_snapshot.drive_voltage_v = 0.0f;
   s_last_service_ms = 0u;
+  s_temperature_bumpless_pending = 0u;
   ChipMeasure_ResetSyncFilter(&s_measure_filter);
 
   status = thermal_control_zero_output();
@@ -106,6 +109,7 @@ ThermalControl_Status ThermalControl_Stop(void)
   s_snapshot.resistance_ohm = 0.0f;
   s_snapshot.status = status;
   s_last_service_ms = 0u;
+  s_temperature_bumpless_pending = 0u;
   ChipMeasure_ResetSyncFilter(&s_measure_filter);
   thermal_control_reset_temperature_pi();
 
@@ -125,6 +129,7 @@ ThermalControl_Status ThermalControl_SetTargetCurrent(float current_a)
   s_snapshot.target_current_a = current_a;
   s_snapshot.status = THERMAL_CONTROL_OK;
   s_last_service_ms = 0u;
+  s_temperature_bumpless_pending = 0u;
   ChipMeasure_ResetSyncFilter(&s_measure_filter);
   thermal_control_reset_temperature_pi();
 
@@ -133,11 +138,19 @@ ThermalControl_Status ThermalControl_SetTargetCurrent(float current_a)
 
 ThermalControl_Status ThermalControl_SetTargetTemperature(float temperature_c)
 {
+  uint8_t active_control;
+
   if ((temperature_c < THERMAL_CONTROL_MIN_TARGET_TEMP_C) ||
       (temperature_c > THERMAL_CONTROL_MAX_TARGET_TEMP_C))
   {
     return THERMAL_CONTROL_INVALID_PARAM;
   }
+
+  active_control =
+      ((s_snapshot.enabled != 0u) &&
+       (s_snapshot.faulted == 0u) &&
+       ((s_snapshot.mode == THERMAL_CONTROL_MODE_CURRENT) ||
+        (s_snapshot.mode == THERMAL_CONTROL_MODE_TEMPERATURE))) ? 1u : 0u;
 
   s_snapshot.mode = THERMAL_CONTROL_MODE_TEMPERATURE;
   s_snapshot.enabled = 1u;
@@ -145,8 +158,16 @@ ThermalControl_Status ThermalControl_SetTargetTemperature(float temperature_c)
   s_snapshot.target_temperature_c = temperature_c;
   s_snapshot.status = THERMAL_CONTROL_OK;
   s_last_service_ms = 0u;
-  ChipMeasure_ResetSyncFilter(&s_measure_filter);
   thermal_control_reset_temperature_pi();
+  s_temperature_bumpless_pending = active_control;
+
+  /* The external measurement path has not changed. Preserve its low-pass
+   * history during an active CURRENT/TEMPERATURE handoff so the first
+   * temperature sample does not jump back to an unfiltered reading. */
+  if (active_control == 0u)
+  {
+    ChipMeasure_ResetSyncFilter(&s_measure_filter);
+  }
 
   return THERMAL_CONTROL_OK;
 }
@@ -221,7 +242,10 @@ ThermalControl_Status ThermalControl_Service(uint32_t now_ms)
     }
   }
 
-  if ((s_snapshot.mode == THERMAL_CONTROL_MODE_TEMPERATURE) && (resistance_valid != 0u))
+  /* Keep the temperature snapshot current in both active modes. This gives a
+   * CURRENT -> TEMPERATURE handoff a real process value instead of the
+   * historical CURRENT-mode placeholder of 0 C. */
+  if (resistance_valid != 0u)
   {
     measured_temperature_c = ChipTemperature_FromResistance(resistance_ohm);
   }
@@ -251,7 +275,15 @@ ThermalControl_Status ThermalControl_Service(uint32_t now_ms)
 
     if (resistance_valid != 0u)
     {
-      target_current_a = thermal_control_temperature_pi(temperature_error_c, dt_s);
+      if (s_temperature_bumpless_pending != 0u)
+      {
+        target_current_a = thermal_control_temperature_bumpless(temperature_error_c, current_a);
+        s_temperature_bumpless_pending = 0u;
+      }
+      else
+      {
+        target_current_a = thermal_control_temperature_pi(temperature_error_c, dt_s);
+      }
     }
     else
     {
@@ -417,6 +449,7 @@ static ThermalControl_Status thermal_control_fault(ThermalControl_Status status)
   s_snapshot.faulted = 1u;
   s_snapshot.target_current_a = 0.0f;
   s_snapshot.status = status;
+  s_temperature_bumpless_pending = 0u;
   ChipMeasure_ResetSyncFilter(&s_measure_filter);
   thermal_control_reset_temperature_pi();
   return status;
@@ -442,6 +475,31 @@ static float thermal_control_temperature_pi(float error_c, float dt_s)
   raw_target_a = proportional_a + s_snapshot.temperature_integral_a;
 
   return thermal_control_clampf(raw_target_a, 0.0f, THERMAL_CONTROL_MAX_TARGET_CURRENT_A);
+}
+
+static float thermal_control_temperature_bumpless(float error_c, float current_a)
+{
+  float proportional_a;
+  float integral_a;
+
+  /* At or above the requested temperature, removing heater current is the
+   * correct safe action; do not preserve the previous current in that case. */
+  if (error_c <= 0.0f)
+  {
+    s_snapshot.temperature_integral_a = 0.0f;
+    return 0.0f;
+  }
+
+  proportional_a = error_c * THERMAL_CONTROL_TEMP_KP_A_PER_C;
+  integral_a = current_a - proportional_a;
+  integral_a = thermal_control_clampf(integral_a,
+                                      THERMAL_CONTROL_TEMP_INTEGRAL_MIN_A,
+                                      THERMAL_CONTROL_TEMP_INTEGRAL_MAX_A);
+  s_snapshot.temperature_integral_a = integral_a;
+
+  return thermal_control_clampf(proportional_a + integral_a,
+                                0.0f,
+                                THERMAL_CONTROL_MAX_TARGET_CURRENT_A);
 }
 
 static void thermal_control_reset_temperature_pi(void)
