@@ -35,11 +35,16 @@ static ThermalControl_Snapshot s_snapshot = {
 };
 
 static uint32_t s_last_service_ms;
+static ChipMeasure_SyncFilter s_measure_filter;
 
 static ThermalControl_Status thermal_control_measure(float *current_a,
                                                      float *load_voltage_v,
                                                      float *power_w,
-                                                     float *resistance_ohm);
+                                                     float *resistance_ohm,
+                                                     float *safety_current_a,
+                                                     float *safety_load_voltage_v,
+                                                     float *safety_power_w,
+                                                     float *safety_resistance_ohm);
 static ThermalControl_Status thermal_control_apply_drive(float drive_v);
 static ThermalControl_Status thermal_control_zero_output(void);
 static ThermalControl_Status thermal_control_fault(ThermalControl_Status status);
@@ -70,6 +75,7 @@ ThermalControl_Status ThermalControl_Init(void)
   s_snapshot.resistance_ohm = 0.0f;
   s_snapshot.drive_voltage_v = 0.0f;
   s_last_service_ms = 0u;
+  ChipMeasure_ResetSyncFilter(&s_measure_filter);
 
   status = thermal_control_zero_output();
   if (status != THERMAL_CONTROL_OK)
@@ -100,6 +106,7 @@ ThermalControl_Status ThermalControl_Stop(void)
   s_snapshot.resistance_ohm = 0.0f;
   s_snapshot.status = status;
   s_last_service_ms = 0u;
+  ChipMeasure_ResetSyncFilter(&s_measure_filter);
   thermal_control_reset_temperature_pi();
 
   return status;
@@ -118,6 +125,7 @@ ThermalControl_Status ThermalControl_SetTargetCurrent(float current_a)
   s_snapshot.target_current_a = current_a;
   s_snapshot.status = THERMAL_CONTROL_OK;
   s_last_service_ms = 0u;
+  ChipMeasure_ResetSyncFilter(&s_measure_filter);
   thermal_control_reset_temperature_pi();
 
   return THERMAL_CONTROL_OK;
@@ -137,6 +145,7 @@ ThermalControl_Status ThermalControl_SetTargetTemperature(float temperature_c)
   s_snapshot.target_temperature_c = temperature_c;
   s_snapshot.status = THERMAL_CONTROL_OK;
   s_last_service_ms = 0u;
+  ChipMeasure_ResetSyncFilter(&s_measure_filter);
   thermal_control_reset_temperature_pi();
 
   return THERMAL_CONTROL_OK;
@@ -148,6 +157,10 @@ ThermalControl_Status ThermalControl_Service(uint32_t now_ms)
   float load_voltage_v = 0.0f;
   float power_w = 0.0f;
   float resistance_ohm = 0.0f;
+  float safety_current_a = 0.0f;
+  float safety_load_voltage_v = 0.0f;
+  float safety_power_w = 0.0f;
+  float safety_resistance_ohm = 0.0f;
   float measured_temperature_c = s_snapshot.measured_temperature_c;
   float target_current_a;
   float current_error_a;
@@ -173,7 +186,14 @@ ThermalControl_Status ThermalControl_Service(uint32_t now_ms)
   s_last_service_ms = now_ms;
   dt_s = (float)elapsed_ms / 1000.0f;
 
-  status = thermal_control_measure(&current_a, &load_voltage_v, &power_w, &resistance_ohm);
+  status = thermal_control_measure(&current_a,
+                                   &load_voltage_v,
+                                   &power_w,
+                                   &resistance_ohm,
+                                   &safety_current_a,
+                                   &safety_load_voltage_v,
+                                   &safety_power_w,
+                                   &safety_resistance_ohm);
   if (status != THERMAL_CONTROL_OK)
   {
     return thermal_control_fault(status);
@@ -190,29 +210,35 @@ ThermalControl_Status ThermalControl_Service(uint32_t now_ms)
    * integration so we neither fault nor wind up on a stale reading. */
   resistance_valid = (current_a > THERMAL_CONTROL_MIN_RESISTANCE_CURRENT) ? 1u : 0u;
 
-  if ((s_snapshot.mode == THERMAL_CONTROL_MODE_TEMPERATURE) && (resistance_valid != 0u))
+  if ((s_snapshot.mode == THERMAL_CONTROL_MODE_TEMPERATURE) &&
+      (safety_current_a > THERMAL_CONTROL_MIN_RESISTANCE_CURRENT))
   {
-    measured_temperature_c = ChipTemperature_FromResistance(resistance_ohm);
+    float safety_temperature_c = ChipTemperature_FromResistance(safety_resistance_ohm);
 
-    if (measured_temperature_c > THERMAL_CONTROL_MAX_BOARD_TEMP_C)
+    if (safety_temperature_c > THERMAL_CONTROL_MAX_BOARD_TEMP_C)
     {
       return thermal_control_fault(THERMAL_CONTROL_OVERTEMP);
     }
   }
 
+  if ((s_snapshot.mode == THERMAL_CONTROL_MODE_TEMPERATURE) && (resistance_valid != 0u))
+  {
+    measured_temperature_c = ChipTemperature_FromResistance(resistance_ohm);
+  }
+
   s_snapshot.measured_temperature_c = measured_temperature_c;
 
-  if (current_a > THERMAL_CONTROL_MAX_CURRENT_A)
+  if (safety_current_a > THERMAL_CONTROL_MAX_CURRENT_A)
   {
     return thermal_control_fault(THERMAL_CONTROL_OVERCURRENT);
   }
 
-  if (load_voltage_v > THERMAL_CONTROL_MAX_LOAD_VOLTAGE_V)
+  if (safety_load_voltage_v > THERMAL_CONTROL_MAX_LOAD_VOLTAGE_V)
   {
     return thermal_control_fault(THERMAL_CONTROL_OVERVOLTAGE);
   }
 
-  if (power_w > THERMAL_CONTROL_MAX_POWER_W)
+  if (safety_power_w > THERMAL_CONTROL_MAX_POWER_W)
   {
     return thermal_control_fault(THERMAL_CONTROL_OVERPOWER);
   }
@@ -322,19 +348,40 @@ const char *ThermalControl_ModeText(ThermalControl_Mode mode)
 static ThermalControl_Status thermal_control_measure(float *current_a,
                                                      float *load_voltage_v,
                                                      float *power_w,
-                                                     float *resistance_ohm)
+                                                     float *resistance_ohm,
+                                                     float *safety_current_a,
+                                                     float *safety_load_voltage_v,
+                                                     float *safety_power_w,
+                                                     float *safety_resistance_ohm)
 {
   ChipMeasure_Status measure_status;
-  ChipMeasure_SyncSample sample;
+  ChipMeasure_SyncSample raw_sample;
+  ChipMeasure_SyncSample filtered_sample;
 
-  measure_status = ChipMeasure_ReadSynchronized(CHIP_MEASURE_PATH_EXTERNAL, &sample);
+  measure_status = ChipMeasure_ReadSynchronized(CHIP_MEASURE_PATH_EXTERNAL, &raw_sample);
   if (measure_status != CHIP_MEASURE_OK)
   {
     return thermal_control_from_measure(measure_status);
   }
 
-  *current_a = thermal_control_absf(sample.current_a);
-  *load_voltage_v = thermal_control_absf(sample.load_voltage_v);
+  *safety_current_a = thermal_control_absf(raw_sample.current_a);
+  *safety_load_voltage_v = thermal_control_absf(raw_sample.load_voltage_v);
+  *safety_power_w = (*safety_current_a) * (*safety_load_voltage_v);
+  (void)ChipMeasure_ComputeExternalResistance(*safety_load_voltage_v,
+                                              *safety_current_a,
+                                              safety_resistance_ohm);
+
+  measure_status = ChipMeasure_FilterSynchronized(CHIP_MEASURE_PATH_EXTERNAL,
+                                                  &raw_sample,
+                                                  &s_measure_filter,
+                                                  &filtered_sample);
+  if (measure_status != CHIP_MEASURE_OK)
+  {
+    return thermal_control_from_measure(measure_status);
+  }
+
+  *current_a = thermal_control_absf(filtered_sample.current_a);
+  *load_voltage_v = thermal_control_absf(filtered_sample.load_voltage_v);
   *power_w = (*current_a) * (*load_voltage_v);
 
   (void)ChipMeasure_ComputeExternalResistance(*load_voltage_v, *current_a, resistance_ohm);
@@ -370,6 +417,7 @@ static ThermalControl_Status thermal_control_fault(ThermalControl_Status status)
   s_snapshot.faulted = 1u;
   s_snapshot.target_current_a = 0.0f;
   s_snapshot.status = status;
+  ChipMeasure_ResetSyncFilter(&s_measure_filter);
   thermal_control_reset_temperature_pi();
   return status;
 }

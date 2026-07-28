@@ -41,7 +41,6 @@
 #define APP_ADC_SAMPLE_DEFAULT_COUNT 10u
 #define APP_ADC_SAMPLE_MAX_COUNT 100u
 
-#define APP_ADC_FILTER_ALPHA 0.25f
 /* Minimum current for a valid resistance (and thus temperature) reading.
  * Mirrors THERMAL_CONTROL_MIN_RESISTANCE_CURRENT / CHIP_MEASURE_MIN_CURRENT_A. */
 #define APP_TEMP_MIN_CURRENT_A         0.000001f
@@ -68,9 +67,7 @@ UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
 
-static uint8_t s_adc_filter_valid = 0u;
-static float s_adc_filter_current_a = 0.0f;
-static float s_adc_filter_voltage_v = 0.0f;
+static ChipMeasure_SyncFilter s_adc_filter;
 
 /* USER CODE END PV */
 
@@ -315,7 +312,9 @@ static void App_PrintTemperature(void)
   float temperature_c;
   int32_t temperature_mC;
 
-  status = ChipMeasure_ReadSynchronized(CHIP_MEASURE_PATH_EXTERNAL, &sample);
+  status = ChipMeasure_ReadSynchronizedFiltered(CHIP_MEASURE_PATH_EXTERNAL,
+                                                &s_adc_filter,
+                                                &sample);
   if (status != CHIP_MEASURE_OK)
   {
     BoardUart_Printf(BOARD_UART_PORT_DEBUG,
@@ -424,7 +423,7 @@ static void App_PrintAdcFilteredSamples(uint32_t count)
   BoardUart_Printf(BOARD_UART_PORT_DEBUG,
                    "AD7190 filtered samples: count=%lu alpha=%ld mpermil\r\n",
                    (unsigned long)count,
-                   (long)App_FloatToMilli(APP_ADC_FILTER_ALPHA));
+                   (long)App_FloatToMilli(CHIP_MEASURE_SYNC_FILTER_ALPHA));
 
   for (index = 0u; index < count; index++)
   {
@@ -434,7 +433,9 @@ static void App_PrintAdcFilteredSamples(uint32_t count)
     float voltage_abs_v;
     float resistance_ohm;
 
-    status = ChipMeasure_ReadSynchronized(CHIP_MEASURE_PATH_EXTERNAL, &sample);
+    status = ChipMeasure_ReadSynchronizedFiltered(CHIP_MEASURE_PATH_EXTERNAL,
+                                                  &s_adc_filter,
+                                                  &sample);
     if (status != CHIP_MEASURE_OK)
     {
       BoardUart_Printf(BOARD_UART_PORT_DEBUG,
@@ -445,27 +446,15 @@ static void App_PrintAdcFilteredSamples(uint32_t count)
       return;
     }
 
-    if (s_adc_filter_valid == 0u)
-    {
-      s_adc_filter_current_a = sample.current_a;
-      s_adc_filter_voltage_v = sample.load_voltage_v;
-      s_adc_filter_valid = 1u;
-    }
-    else
-    {
-      s_adc_filter_current_a += APP_ADC_FILTER_ALPHA * (sample.current_a - s_adc_filter_current_a);
-      s_adc_filter_voltage_v += APP_ADC_FILTER_ALPHA * (sample.load_voltage_v - s_adc_filter_voltage_v);
-    }
-
-    current_abs_a = (s_adc_filter_current_a < 0.0f) ? -s_adc_filter_current_a : s_adc_filter_current_a;
-    voltage_abs_v = (s_adc_filter_voltage_v < 0.0f) ? -s_adc_filter_voltage_v : s_adc_filter_voltage_v;
+    current_abs_a = (sample.current_a < 0.0f) ? -sample.current_a : sample.current_a;
+    voltage_abs_v = (sample.load_voltage_v < 0.0f) ? -sample.load_voltage_v : sample.load_voltage_v;
     (void)ChipMeasure_ComputeExternalResistance(voltage_abs_v, current_abs_a, &resistance_ohm);
 
     BoardUart_Printf(BOARD_UART_PORT_DEBUG,
                      "adcf %lu: I=%ld nA V=%ld uV R=%ld uOhm status current=0x%02X voltage=0x%02X\r\n",
                      (unsigned long)(index + 1u),
-                     (long)App_FloatToMilli(s_adc_filter_current_a * 1000000.0f),
-                     (long)App_FloatToMilli(s_adc_filter_voltage_v * 1000.0f),
+                     (long)App_FloatToMilli(sample.current_a * 1000000.0f),
+                     (long)App_FloatToMilli(sample.load_voltage_v * 1000.0f),
                      (long)App_FloatToMicro(resistance_ohm),
                      sample.current_adc_status,
                      sample.voltage_adc_status);
@@ -1273,7 +1262,7 @@ static void MX_GPIO_Init(void)
 
 void App_ResetAdcFilter(void)
 {
-  s_adc_filter_valid = 0u;
+  ChipMeasure_ResetSyncFilter(&s_adc_filter);
 }
 
 /* USER CODE END 4 */

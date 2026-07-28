@@ -326,6 +326,76 @@ ChipMeasure_Status ChipMeasure_ReadSynchronized(ChipMeasure_Path path, ChipMeasu
   return CHIP_MEASURE_OK;
 }
 
+void ChipMeasure_ResetSyncFilter(ChipMeasure_SyncFilter *filter)
+{
+  if (filter != NULL)
+  {
+    filter->valid = 0u;
+  }
+}
+
+ChipMeasure_Status ChipMeasure_FilterSynchronized(ChipMeasure_Path path,
+                                                 const ChipMeasure_SyncSample *input,
+                                                 ChipMeasure_SyncFilter *filter,
+                                                 ChipMeasure_SyncSample *output)
+{
+  if ((input == NULL) || (filter == NULL) || (output == NULL))
+  {
+    return CHIP_MEASURE_INVALID_PARAM;
+  }
+
+  if ((path != CHIP_MEASURE_PATH_EXTERNAL) && (path != CHIP_MEASURE_PATH_INTERNAL_R42))
+  {
+    return CHIP_MEASURE_INVALID_PARAM;
+  }
+
+  if ((filter->valid == 0u) || (filter->path != path))
+  {
+    filter->sample = *input;
+    filter->path = path;
+    filter->valid = 1u;
+  }
+  else
+  {
+    filter->sample.current_sense_voltage_v +=
+        CHIP_MEASURE_SYNC_FILTER_ALPHA *
+        (input->current_sense_voltage_v - filter->sample.current_sense_voltage_v);
+    filter->sample.current_a +=
+        CHIP_MEASURE_SYNC_FILTER_ALPHA * (input->current_a - filter->sample.current_a);
+    filter->sample.load_voltage_raw_v +=
+        CHIP_MEASURE_SYNC_FILTER_ALPHA *
+        (input->load_voltage_raw_v - filter->sample.load_voltage_raw_v);
+    filter->sample.load_voltage_v +=
+        CHIP_MEASURE_SYNC_FILTER_ALPHA * (input->load_voltage_v - filter->sample.load_voltage_v);
+    filter->sample.current_adc_status = input->current_adc_status;
+    filter->sample.voltage_adc_status = input->voltage_adc_status;
+  }
+
+  *output = filter->sample;
+  return CHIP_MEASURE_OK;
+}
+
+ChipMeasure_Status ChipMeasure_ReadSynchronizedFiltered(ChipMeasure_Path path,
+                                                       ChipMeasure_SyncFilter *filter,
+                                                       ChipMeasure_SyncSample *sample)
+{
+  ChipMeasure_SyncSample raw_sample;
+  ChipMeasure_Status status;
+
+  if ((filter == NULL) || (sample == NULL))
+  {
+    return CHIP_MEASURE_INVALID_PARAM;
+  }
+
+  status = ChipMeasure_ReadSynchronized(path, &raw_sample);
+  if (status != CHIP_MEASURE_OK)
+  {
+    return status;
+  }
+
+  return ChipMeasure_FilterSynchronized(path, &raw_sample, filter, sample);
+}
+
 ChipMeasure_Status ChipMeasure_ReadInternalR42(ChipMeasure_R42Sample *sample)
 {
   ChipMeasure_Status status;

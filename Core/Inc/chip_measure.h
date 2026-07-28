@@ -17,6 +17,8 @@ extern "C" {
 #include "ad7190.h"
 #include <stdint.h>
 
+#define CHIP_MEASURE_SYNC_FILTER_ALPHA 0.25f
+
 typedef enum
 {
   CHIP_MEASURE_OK = 0,
@@ -53,6 +55,13 @@ typedef struct
   uint8_t voltage_adc_status;
 } ChipMeasure_SyncSample;
 
+typedef struct
+{
+  ChipMeasure_SyncSample sample;
+  ChipMeasure_Path path;
+  uint8_t valid;
+} ChipMeasure_SyncFilter;
+
 ChipMeasure_Status ChipMeasure_Init(void);
 ChipMeasure_Status ChipMeasure_ReadAdcIds(uint8_t *current_adc_id, uint8_t *voltage_adc_id);
 ChipMeasure_Status ChipMeasure_SelectPath(ChipMeasure_Path path);
@@ -61,6 +70,14 @@ ChipMeasure_Status ChipMeasure_ReadLoadVoltage(ChipMeasure_Path path,
                                                float *load_voltage_v,
                                                float *raw_voltage_v);
 ChipMeasure_Status ChipMeasure_ReadSynchronized(ChipMeasure_Path path, ChipMeasure_SyncSample *sample);
+void ChipMeasure_ResetSyncFilter(ChipMeasure_SyncFilter *filter);
+ChipMeasure_Status ChipMeasure_FilterSynchronized(ChipMeasure_Path path,
+                                                 const ChipMeasure_SyncSample *input,
+                                                 ChipMeasure_SyncFilter *filter,
+                                                 ChipMeasure_SyncSample *output);
+ChipMeasure_Status ChipMeasure_ReadSynchronizedFiltered(ChipMeasure_Path path,
+                                                       ChipMeasure_SyncFilter *filter,
+                                                       ChipMeasure_SyncSample *sample);
 ChipMeasure_Status ChipMeasure_ReadInternalR42(ChipMeasure_R42Sample *sample);
 uint8_t ChipMeasure_ComputeExternalResistance(float load_voltage_v,
                                                float total_current_a,
