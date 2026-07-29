@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-读取 adcf_logger.py 产生的 CSV，画长时间温漂趋势图。
+读取 temp_drift_test.py 产生的 CSV，画长时间温漂趋势图。
 
 每个量 (I/V/R) 以「偏离全程均值的 ppm」为纵轴，便于直接看漂移幅度，且三量量纲一致。
 每张子图含：原始秒级散点 + 每小时(可配置)均值折线 + 线性拟合虚线，
 标题标注噪声(rms)与净漂移，用于判断是否存在系统性温漂。
 
 用法:
-    python3 tools/plot_drift.py                 # 自动找最新的 adcf_log_*.csv
-    python3 tools/plot_drift.py -i some.csv -o out.png
-    python3 tools/plot_drift.py --bin 1800 --no-raw
+    python3 tools/plot_temp_drift.py
+    python3 tools/plot_temp_drift.py -i some.csv -o out.png
+    python3 tools/plot_temp_drift.py --bin 1800 --no-raw
 """
 import argparse
 import csv
@@ -18,11 +18,11 @@ import glob
 import os
 import sys
 import tempfile
-from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-os.environ.setdefault("MPLCONFIGDIR", os.path.join(tempfile.gettempdir(), "matplotlib-chipcontroller"))
+os.environ.setdefault("MPLCONFIGDIR", os.path.join(tempfile.gettempdir(),
+                                                   "matplotlib-chipcontroller"))
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -37,34 +37,33 @@ for _name in ("Noto Sans CJK JP", "Noto Sans CJK SC", "WenQuanYi Zen Hei", "SimH
 
 
 def latest_log(root):
-    fs = glob.glob(os.path.join(root, "adcf_log_*.csv"))
+    fs = glob.glob(os.path.join(root, "temp_drift_*.csv"))
     return max(fs, key=os.path.getmtime) if fs else None
 
 
 def load(path):
     t, I, V, R = [], [], [], []
     ts0 = None
-    with open(path, newline="", encoding="utf-8") as fh:
-        for index, row in enumerate(csv.DictReader(fh)):
+    with open(path, newline="", encoding="utf-8-sig") as fh:
+        reader = csv.DictReader(fh)
+        required = {"timestamp", "monotonic_s", "I_nA", "V_uV", "R_Ohm"}
+        missing = required.difference(reader.fieldnames or ())
+        if missing:
+            raise ValueError(
+                "CSV 不是 temp_drift_test.py 的输出，缺少列: "
+                + ", ".join(sorted(missing))
+            )
+        for row in reader:
             if not row.get("I_nA"):
                 continue
-            if row.get("monotonic_s"):
-                t.append(float(row["monotonic_s"]))
-            else:
-                try:
-                    t.append(datetime.strptime(row["timestamp"], "%Y-%m-%d %H:%M:%S").timestamp())
-                except (KeyError, ValueError):
-                    t.append(float(index))
+            t.append(float(row["monotonic_s"]))
             I.append(float(row["I_nA"]))
             V.append(float(row["V_uV"]))
-            if row.get("R_Ohm"):
-                R.append(float(row["R_Ohm"]))
-            elif row.get("R_uOhm"):
-                R.append(float(row["R_uOhm"]) * 1e-6)
-            else:
-                R.append(float("nan"))
+            R.append(float(row["R_Ohm"]) if row["R_Ohm"] else float("nan"))
             if ts0 is None:
                 ts0 = row["timestamp"]
+    if len(t) < 2:
+        raise ValueError("CSV 中至少需要两条有效温漂样本")
     return (np.array(x) for x in (t, I, V, R)), ts0
 
 
@@ -88,8 +87,8 @@ def bin_mean(x, y, bin_s, min_frac=0.5):
 def main():
     here = Path(__file__).resolve().parent
     root = here.parent
-    ap = argparse.ArgumentParser(description="画 adcf_logger CSV 的温漂趋势图")
-    ap.add_argument("-i", "--input", help="adcf_log CSV (默认最新)")
+    ap = argparse.ArgumentParser(description="绘制 temp_drift_test CSV 的长期温漂趋势")
+    ap.add_argument("-i", "--input", help="temp_drift CSV (默认查找最新 temp_drift_*.csv)")
     ap.add_argument("-o", "--output", help="输出 png (默认同名 .png)")
     ap.add_argument("--bin", type=float, default=3600, help="均值桶大小秒 (默认 3600=1h)")
     ap.add_argument("--no-raw", action="store_true", help="不画原始散点")
@@ -97,8 +96,11 @@ def main():
 
     src = args.input or latest_log(str(root)) or latest_log(os.getcwd())
     if not src or not os.path.exists(src):
-        sys.exit("找不到 adcf_log_*.csv，请用 -i 指定")
-    (t_s, I_na, V_uv, R_ohm), ts0 = load(src)
+        sys.exit("找不到 temp_drift_*.csv，请用 -i 指定")
+    try:
+        (t_s, I_na, V_uv, R_ohm), ts0 = load(src)
+    except (OSError, ValueError) as exc:
+        sys.exit(str(exc))
     # monotonic_s 存的是 time.monotonic() 绝对值（采集开始前已累积若干秒），
     # 减去首样本归零，否则时长与 x 轴起点会偏大（例如把 24h 显示成 25.7h）。
     t_s = t_s - t_s[0]

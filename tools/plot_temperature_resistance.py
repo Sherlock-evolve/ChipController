@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""从采集 CSV 绘制全程温度曲线和末尾 30 分钟温度细微波动。"""
+"""绘制控温测试曲线。
+
+输入可以是 tools/adcf_logger.py 生成的简易 CSV，也可以是 Qt 上位机
+生成的扩展 CSV；两者都必须包含 timestamp 和 chip_temp_C 列。
+输出全程温度曲线和末尾 30 分钟温度细微波动图。
+"""
 
 import argparse
 import csv
@@ -179,8 +184,13 @@ def plot_stable_temperature(time_values, time_label, temperatures, output_path, 
 
 def main():
     project_root = Path(__file__).resolve().parents[1]
-    parser = argparse.ArgumentParser(description="绘制全程温度图和稳定后 30 分钟温度波动图")
-    parser.add_argument("-i", "--input", help="采集 CSV（默认查找最新 adcf_log_*.csv）")
+    parser = argparse.ArgumentParser(
+        description="绘制 adcf_logger/Qt 控温日志的全程温度图和末尾 30 分钟波动图"
+    )
+    parser.add_argument(
+        "-i", "--input",
+        help="adcf_logger 或 Qt 采集 CSV（默认查找最新 adcf_log_*.csv）",
+    )
     parser.add_argument("-o", "--output-prefix",
                         help="输出文件前缀（默认使用输入 CSV 文件名）")
     parser.add_argument("--dpi", type=int, default=300, help="输出 DPI（默认 300）")

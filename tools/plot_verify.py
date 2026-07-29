@@ -15,9 +15,13 @@ Input format (per current point):
 Units: I nA, V uV, R uOhm.  ->  I mA (/1e6), V V (/1e6), R Ohm (/1e6).
 """
 import re
+import os
 import sys
+import tempfile
 from pathlib import Path
 import numpy as np
+os.environ.setdefault("MPLCONFIGDIR", os.path.join(tempfile.gettempdir(),
+                                                   "matplotlib-chipcontroller"))
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt

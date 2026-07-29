@@ -103,10 +103,13 @@ ChipController V1.0.0/
 ├── host_qt/                    # PySide6 上位机 GUI
 │   └── chip_controller_gui.py
 ├── tools/                      # Python 数据采集与分析脚本
-│   ├── adcf_logger.py          # 长期温漂采集 → CSV
-│   ├── plot_drift.py           # 温漂趋势绘图 (ppm)
-│   ├── plot_mutiR.py           # 多阻值线性度分析
-│   └── plot_verify.py          # 电流扫描验证
+│   ├── temp_drift_test.py      # 板级长期温漂采集
+│   ├── plot_temp_drift.py      # 长期温漂趋势绘图 (ppm)
+│   ├── adcf_logger.py          # 不启动 Qt 的简易温度采集
+│   ├── plot_temperature_resistance.py # Qt/简易采集控温曲线
+│   ├── plot_mutiR.py           # mutiR.txt 多阻值测试出图
+│   ├── plot_verify.py          # verify.txt 线性度验证出图
+│   └── README.md               # 工具选择与使用方法
 ├── docs/                       # 设计文档、芯片手册、网表、TCR 表
 ├── ChipController V1.ioc       # STM32CubeMX 工程文件
 └── STM32H753IITX_FLASH.ld      # 链接脚本
@@ -238,10 +241,14 @@ ChipController 采用两层校准，互不替代：
 
 | 脚本 | 用途 |
 | --- | --- |
-| `adcf_logger.py` | 无 GUI 环境下的采集备用方案；每隔 N 秒发送 `adcf 1` 并写入兼容 CSV |
-| `plot_drift.py` | 读取漂移 CSV，以「偏离全程均值的 ppm」绘制温漂趋势（含小时均值与线性拟合） |
-| `plot_mutiR.py` | 解析多点电阻日志，按电流设定绘制线性度曲线，并匹配 DAQ6510 参考值 |
-| `plot_verify.py` | 解析电流扫描日志，验证恒流精度与电阻测量一致性 |
+| `temp_drift_test.py` | 板级长期温漂专用采集，输出 `temp_drift_*.csv` |
+| `plot_temp_drift.py` | 配套读取 `temp_drift_*.csv`，绘制 I/V/R 的 ppm 漂移趋势 |
+| `adcf_logger.py` | 不启动 Qt 时的简易采集，输出与 Qt 前六列兼容的 `adcf_log_*.csv` |
+| `plot_temperature_resistance.py` | 读取 `adcf_logger.py` 或 Qt 日志，绘制控温全程及末尾 30 分钟温度图 |
+| `plot_mutiR.py` | 解析 `mutiR.txt` 多电阻日志，按电流设定绘制线性度并匹配 DAQ6510 参考值 |
+| `plot_verify.py` | 解析 `verify.txt` 电流扫描日志，验证恒流精度、电阻一致性和 V-I 线性度 |
+
+具体选择方式和命令示例见 [`tools/README.md`](tools/README.md)。
 
 ---
 
