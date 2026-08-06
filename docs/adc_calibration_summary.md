@@ -17,16 +17,16 @@
 代码位置：`Core/Src/chip_measure.c`
 
 ```c
-#define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000535f
-#define CHIP_MEASURE_VOLTAGE_ZERO_V       0.00000603f
-#define CHIP_MEASURE_CURRENT_GAIN         1.00079f
+#define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000661914f
+#define CHIP_MEASURE_VOLTAGE_ZERO_V       0.00002264f
+#define CHIP_MEASURE_CURRENT_GAIN         1.000787052f
 #define CHIP_MEASURE_VOLTAGE_GAIN         1.00329f
 ```
 
 含义：
 
-- `CHIP_MEASURE_CURRENT_ZERO_A`: 电流通道外部路径零点，单位 A，当前为 `-0.535 uA`
-- `CHIP_MEASURE_VOLTAGE_ZERO_V`: 电压通道外部路径零点，单位 V，当前为 `+6.03 uV`
+- `CHIP_MEASURE_CURRENT_ZERO_A`: 电流通道外部路径有效零点，单位 A，当前为 `-0.661914 uA`
+- `CHIP_MEASURE_VOLTAGE_ZERO_V`: 电压通道外部路径零点，单位 V，当前为 `+22.64 uV`
 - `CHIP_MEASURE_CURRENT_GAIN`: 电流通道外部路径增益修正
 - `CHIP_MEASURE_VOLTAGE_GAIN`: 电压通道外部路径增益修正
 
@@ -38,6 +38,17 @@
 2. 板级外部路径软件校准
 
 这两层解决的问题不同，应同时保留。
+
+### G128 低电流工作点修正
+
+电流 ADC 改为 G128、两路 ADC 改为 FS480 后，使用 150.002 Ω 精密电阻在
+300 uA 恒流下记录 `adcf_log_20260806_102740.csv`。丢弃前 60 秒滤波建立过程后，
+775 个样本的平均阻值约为 150.03345 Ω。
+
+保持原电流比例增益和电压通道校准不变，通过固件相同的高阻补偿公式反算，需要将
+校准电流提高约 62.84 nA。因此电流通道有效零点由 `-0.599120 uA` 更新为
+`-0.661914 uA`，回算平均阻值为 150.002 Ω。该值是 300 uA 工作点修正，不替代
+后续独立的开路零点和多电流比例校准。
 
 ### AD7190 芯片内部校准
 
@@ -74,7 +85,7 @@ AD7190_CalibrateFullScale(...);
 ```text
 current ADC:
   AD7190_Init
-  AD7190_Configure(AIN1-AIN2, gain=16, bipolar)
+  AD7190_Configure(AIN1-AIN2, gain=128, bipolar)
   AD7190_CalibrateZeroScale
   AD7190_CalibrateFullScale
 
@@ -84,6 +95,13 @@ voltage ADC:
   AD7190_CalibrateZeroScale
   AD7190_CalibrateFullScale
 ```
+
+两路 ADC 当前均使用 `FS = 480`、sinc4、chop 关闭；标称输出数据率约 10 Hz，
+单次转换需要约 400 ms 建立时间。电流通道采用高增益以降低 300 uA 测量时的
+等效电流噪声，电压通道保留增益 1 以维持原有 2 V 过压测量范围。
+
+原始码进入最外侧 5% 满量程时返回饱和状态；控制环收到该状态后立即清零输出并
+锁存 `ADC_SATURATED` 故障。
 
 这层校准修正的是 AD7190 芯片内部的零点和满量程误差。它发生在 ADC 原始码转电压之前，属于芯片级校准。
 

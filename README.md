@@ -30,7 +30,7 @@ ChipController 通过四线端子对外部样片或标准电阻施加受控电�
 ## 核心特性
 
 - **四线测量**：`I+/I-` 输出并采样总电流（1 Ω 采样电阻），`V+/V-` 测量负载两端电压，`R = V_load / I_total`。
-- **双 24-bit ΣΔ ADC**：电流通道（增益 16）与电压通道（增益 1）各使用一颗 AD7190，启动时执行片内零点 / 满量程校准。
+- **双 24-bit ΣΔ ADC**：电流通道（增益 128）与电压通道（增益 1）各使用一颗 AD7190，FS = 480（chop 关闭时约 10 Hz），启动时执行片内零点 / 满量程校准。
 - **板级软件校准**：在片内校准之上，对电流 / 电压通道做零点与增益修正（约 150 ppm 级）。
 - **高阻段补偿**：针对无缓冲 AD7190 电压采样支路的动态负载，用等效并联负载模型补偿，保留 150.007 Ω 锚点。
 - **TCR 测温**：分度表分段线性插值，由电阻直接换算芯片温度。
@@ -79,7 +79,7 @@ ChipController 通过四线端子对外部样片或标准电阻施加受控电�
 | 项目 | 规格 |
 | --- | --- |
 | 主控 MCU | STM32H753IITx (ARM Cortex-M7) |
-| 电流 ADC | AD7190 (AIN1-AIN2, gain = 16, bipolar)，采样 R64 = 1 Ω 上的压降 |
+| 电流 ADC | AD7190 (AIN1-AIN2, gain = 128, bipolar)，采样 R64 = 1 Ω 上的压降 |
 | 电压 ADC | AD7190 (AIN1-AIN2, gain = 1, bipolar)，采样 V+/V- 负载电压 |
 | DAC | AD5667 双通道 16-bit，驱动电流源 |
 | 参考电压 | 5.0 V |
@@ -144,7 +144,7 @@ ChipController V1.0.0/
 | `r42test` | 运行内部 30 Ω 自检 |
 | `temp` | 由当前电阻读数换算芯片温度 |
 | `adcs <n>` | 连续读取 n 个同步原始 AD7190 样本（n = 1–100） |
-| `adcf <n>` | 连续读取 n 个一阶低通滤波样本（α = 0.25） |
+| `adcf <n>` | 连续读取 n 个一阶低通滤波样本（α = 0.05） |
 | `tc status` | 显示控制环状态（模式 / 目标 / 实测 / 驱动） |
 | `tc stop` | 停止控制并归零输出 |
 | `tc current <mA>` | 启动恒流控制（0–20 mA） |
@@ -190,11 +190,18 @@ ChipController 采用两层校准，互不替代：
 当前板级校准系数（`Core/Src/chip_measure.c`）：
 
 ```c
-#define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000535f   /* -0.535 uA */
-#define CHIP_MEASURE_VOLTAGE_ZERO_V        0.00000603f     /* +6.03 uV  */
-#define CHIP_MEASURE_CURRENT_GAIN          1.00079f
+#define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000661914f /* -0.661914 uA */
+#define CHIP_MEASURE_VOLTAGE_ZERO_V        0.00002264f     /* +22.64 uV    */
+#define CHIP_MEASURE_CURRENT_GAIN          1.000787052f
 #define CHIP_MEASURE_VOLTAGE_GAIN          1.00329f
 ```
+
+AD7190 原始码进入最外侧 5% 满量程时，固件将其判定为饱和。控制模式下该状态会锁存
+`ADC_SATURATED` 故障并立即清零 DAC，避免高增益电流通道饱和后掩盖异常电流。
+
+电流零点包含 G128 / FS480 配置下的低电流工作点修正：使用 150.002 Ω 精密电阻、
+300 µA 恒流和滤波稳定后的 775 个样本，将平均读数由约 150.03345 Ω 修正到
+150.002 Ω。该修正等效于电流读数增加约 62.84 nA。
 
 ### 高阻段测量补偿
 

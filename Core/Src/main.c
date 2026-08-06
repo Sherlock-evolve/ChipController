@@ -114,6 +114,8 @@ static const char *App_ChipMeasureStatusText(ChipMeasure_Status status)
       return "INVALID_PARAM";
     case CHIP_MEASURE_NO_CURRENT:
       return "NO_CURRENT";
+    case CHIP_MEASURE_SATURATED:
+      return "SATURATED";
     default:
       return "UNKNOWN";
   }

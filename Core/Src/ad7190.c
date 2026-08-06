@@ -25,7 +25,15 @@
 #define AD7190_MODE_SINGLE              (1u << 21)
 #define AD7190_MODE_INTERNAL_ZERO_SCALE (0x80u << 16)
 #define AD7190_MODE_INTERNAL_FULL_SCALE (0xA0u << 16)
-#define AD7190_MODE_FS_16HZ             96u
+/* With the nominal 4.92 MHz internal clock and chop disabled, FS=480 gives
+ * a 10 Hz output data rate and a 400 ms sinc4 settling time. */
+#define AD7190_MODE_FS_10HZ             480u
+
+/* Treat the outer 5% of the bipolar data range as an overrange condition.
+ * This leaves enough margin to shut the output down before a high-gain ADC
+ * clips and hides an overcurrent or overvoltage condition. */
+#define AD7190_DATA_MAX_CODE            0x00FFFFFFu
+#define AD7190_DATA_SATURATION_MARGIN   0x00066666u
 
 #define AD7190_CONFIG_CHOP          (1u << 23)
 #define AD7190_CONFIG_REFDET        (1u << 6)
@@ -130,7 +138,7 @@ AD7190_Status AD7190_CalibrateZeroScale(AD7190_Handle *adc)
   result = ad7190_write_mode(adc,
                              AD7190_MODE_INTERNAL_ZERO_SCALE |
                              AD7190_MODE_INTERNAL_CLOCK |
-                             AD7190_MODE_FS_16HZ);
+                             AD7190_MODE_FS_10HZ);
   if (result != AD7190_OK)
   {
     return result;
@@ -163,7 +171,7 @@ AD7190_Status AD7190_CalibrateFullScale(AD7190_Handle *adc)
   result = ad7190_write_mode(adc,
                              AD7190_MODE_INTERNAL_FULL_SCALE |
                              AD7190_MODE_INTERNAL_CLOCK |
-                             AD7190_MODE_FS_16HZ);
+                             AD7190_MODE_FS_10HZ);
   if (result != AD7190_OK)
   {
     return result;
@@ -229,7 +237,7 @@ AD7190_Status AD7190_StartSingle(AD7190_Handle *adc)
     return AD7190_INVALID_PARAM;
   }
 
-  return ad7190_write_mode(adc, AD7190_MODE_SINGLE | AD7190_MODE_INTERNAL_CLOCK | AD7190_MODE_FS_16HZ);
+  return ad7190_write_mode(adc, AD7190_MODE_SINGLE | AD7190_MODE_INTERNAL_CLOCK | AD7190_MODE_FS_10HZ);
 }
 
 AD7190_Status AD7190_WaitReady(AD7190_Handle *adc, uint8_t *status)
@@ -289,6 +297,12 @@ AD7190_Status AD7190_ReadData(AD7190_Handle *adc, uint8_t status, AD7190_Reading
   reading->signed_code = (int32_t)raw - 0x800000;
   reading->status = status;
   reading->voltage = AD7190_ConvertBipolarCode(raw, adc->vref_volts, adc->gain);
+
+  if ((raw <= AD7190_DATA_SATURATION_MARGIN) ||
+      (raw >= (AD7190_DATA_MAX_CODE - AD7190_DATA_SATURATION_MARGIN)))
+  {
+    return AD7190_SATURATED;
+  }
 
   return AD7190_OK;
 }

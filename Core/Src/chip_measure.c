@@ -10,13 +10,14 @@
 #include "chip_measure.h"
 #include "main.h"
 
-#define CHIP_MEASURE_ADC_TIMEOUT_MS       1000u
+#define CHIP_MEASURE_ADC_TIMEOUT_MS       1500u
 #define CHIP_MEASURE_ADC_VREF             5.0f
 #define CHIP_MEASURE_CURRENT_SHUNT_OHM    1.0f
 #define CHIP_MEASURE_MIN_CURRENT_A        0.000001f
 #define CHIP_MEASURE_RELAY_SETTLE_MS      5u
-/* External path zero, measured with I+/I- open and V+/V- shorted. */
-#define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000599120f
+/* External path zero.  The current value includes the G128/FS480 low-current
+ * operating-point trim measured at 300 uA with a 150.002 ohm reference. */
+#define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000661914f
 #define CHIP_MEASURE_VOLTAGE_ZERO_V       0.00002264f
 /* External path gain, measured against a 150.007 ohm load and DMM voltage. */
 #define CHIP_MEASURE_CURRENT_GAIN         1.000787052f
@@ -35,7 +36,7 @@ static AD7190_Handle s_current_adc = {
   .sync_port = SPI1_SYNC_GPIO_Port,
   .sync_pin = SPI1_SYNC_Pin,
   .vref_volts = CHIP_MEASURE_ADC_VREF,
-  .gain = AD7190_GAIN_16,
+  .gain = AD7190_GAIN_128,
   .timeout_ms = CHIP_MEASURE_ADC_TIMEOUT_MS
 };
 
@@ -68,7 +69,7 @@ ChipMeasure_Status ChipMeasure_Init(void)
 
   status = AD7190_Configure(&s_current_adc,
                             AD7190_CHANNEL_AIN1_AIN2,
-                            AD7190_GAIN_16,
+                            AD7190_GAIN_128,
                             1u,
                             0u,
                             0u);
@@ -520,6 +521,8 @@ static ChipMeasure_Status chip_measure_from_ad7190_status(AD7190_Status status)
       return CHIP_MEASURE_BAD_ID;
     case AD7190_INVALID_PARAM:
       return CHIP_MEASURE_INVALID_PARAM;
+    case AD7190_SATURATED:
+      return CHIP_MEASURE_SATURATED;
     case AD7190_ERROR:
     default:
       return CHIP_MEASURE_ERROR;

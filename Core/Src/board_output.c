@@ -242,6 +242,8 @@ static BoardOutput_Status board_output_from_measure(ChipMeasure_Status status)
       return BOARD_OUTPUT_INVALID_PARAM;
     case CHIP_MEASURE_NO_CURRENT:
       return BOARD_OUTPUT_NO_CURRENT;
+    case CHIP_MEASURE_SATURATED:
+      return BOARD_OUTPUT_OVERCURRENT;
     case CHIP_MEASURE_ERROR:
     case CHIP_MEASURE_BAD_ID:
     default:

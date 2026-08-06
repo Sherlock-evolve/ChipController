@@ -782,7 +782,7 @@ class MainWindow(QMainWindow):
 
         self.filter_period = QSpinBox()
         self.filter_period.setRange(100, 60000)
-        self.filter_period.setValue(200)
+        self.filter_period.setValue(500)
         self.filter_period.setSuffix(" ms")
 
         self.start_stream = QPushButton("开始滤波采样")

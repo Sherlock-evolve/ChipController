@@ -17,7 +17,9 @@ extern "C" {
 #include "ad7190.h"
 #include <stdint.h>
 
-#define CHIP_MEASURE_SYNC_FILTER_ALPHA 0.25f
+/* At the 500 ms precision sampling cadence, alpha=0.05 gives an approximately
+ * 9.7 s time constant and sufficient white-noise margin to resolve 0.01 C. */
+#define CHIP_MEASURE_SYNC_FILTER_ALPHA 0.05f
 
 typedef enum
 {
@@ -26,7 +28,8 @@ typedef enum
   CHIP_MEASURE_TIMEOUT,
   CHIP_MEASURE_BAD_ID,
   CHIP_MEASURE_INVALID_PARAM,
-  CHIP_MEASURE_NO_CURRENT
+  CHIP_MEASURE_NO_CURRENT,
+  CHIP_MEASURE_SATURATED
 } ChipMeasure_Status;
 
 typedef enum

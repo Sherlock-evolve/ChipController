@@ -16,7 +16,7 @@ tools/adcf_logger.py。
 仅依赖 Python3 标准库（termios），无需 pyserial。
 
 固件返回行格式（Core/Src/main.c: App_PrintAdcFilteredSamples）：
-    AD7190 filtered samples: count=1 alpha=250 mpermil
+    AD7190 filtered samples: count=1 alpha=50 mpermil
     adcf 1: I=<nA> nA V=<uV> uV R=<uOhm> uOhm status current=0xXX voltage=0xXX
 
 用法示例:

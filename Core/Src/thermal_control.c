@@ -343,6 +343,8 @@ const char *ThermalControl_StatusText(ThermalControl_Status status)
       return "INVALID_PARAM";
     case THERMAL_CONTROL_MEASURE_ERROR:
       return "MEASURE_ERROR";
+    case THERMAL_CONTROL_ADC_SATURATED:
+      return "ADC_SATURATED";
     case THERMAL_CONTROL_TEMP_ERROR:
       return "TEMP_ERROR";
     case THERMAL_CONTROL_OUTPUT_ERROR:
@@ -561,6 +563,8 @@ static ThermalControl_Status thermal_control_from_measure(ChipMeasure_Status sta
       return THERMAL_CONTROL_OK;
     case CHIP_MEASURE_INVALID_PARAM:
       return THERMAL_CONTROL_INVALID_PARAM;
+    case CHIP_MEASURE_SATURATED:
+      return THERMAL_CONTROL_ADC_SATURATED;
     case CHIP_MEASURE_ERROR:
     case CHIP_MEASURE_TIMEOUT:
     case CHIP_MEASURE_BAD_ID:
