@@ -15,16 +15,20 @@
 #define CHIP_MEASURE_CURRENT_SHUNT_OHM    1.0f
 #define CHIP_MEASURE_MIN_CURRENT_A        0.000001f
 #define CHIP_MEASURE_RELAY_SETTLE_MS      5u
-/* External path zero.  The current value includes the G128/FS480 low-current
- * operating-point trim measured at 300 uA with a 150.002 ohm reference. */
-#define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000661914f
-#define CHIP_MEASURE_VOLTAGE_ZERO_V       0.00002264f
-/* External path gain, measured against a 150.007 ohm load and DMM voltage. */
-#define CHIP_MEASURE_CURRENT_GAIN         1.000787052f
+/* G128/FS480 external-path calibration.  The current "zero" is the effective
+ * loaded operating-point offset fitted over 0.3-12 mA with a 150.002 ohm
+ * reference; it intentionally differs from the -0.585095 uA open-circuit
+ * physical zero.  The voltage zero is the open/short physical-path value. */
+#define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000800737f
+#define CHIP_MEASURE_VOLTAGE_ZERO_V       0.000004739f
+/* Current gain comes from the same multi-current resistance fit.  Voltage gain
+ * remains the independently established external-path voltage correction. */
+#define CHIP_MEASURE_CURRENT_GAIN         1.000740870f
 #define CHIP_MEASURE_VOLTAGE_GAIN         1.00329f
 /* Effective voltage-sense loading compensation for U14 unbuffered conversions.
- * The 150 ohm load was used for gain calibration, so keep that point anchored
- * and apply only the incremental correction above it. Reported I/V stay raw. */
+ * Keep the historical 150.007 ohm model anchor independently of the latest
+ * 150.002 ohm zero/gain fit, and apply only the incremental correction above
+ * it. Reported I/V stay raw. */
 #define CHIP_MEASURE_VOLTAGE_SENSE_LOAD_OHM   330000.0f
 #define CHIP_MEASURE_RESISTANCE_ANCHOR_OHM    150.007f
 

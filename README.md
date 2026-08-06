@@ -61,7 +61,7 @@ ChipController 通过四线端子对外部样片或标准电阻施加受控电�
                          │                  └────────┬─────────┘                       │
                          │                           │                                  │
                          │   ┌──────────── 测量 (chip_measure.c) ────────────┐      │
-                         │   │  R64(1Ω)采样 ──► AD7190#1 (gain16) ──► I_total  │      │
+                         │   │  R64(1Ω)采样 ──► AD7190#1 (gain128) ─► I_total  │      │
                          │   │  V+/V-     ──► AD7190#2 (gain1)  ──► V_load   │      │
                          │   │  校准 + 高阻补偿 ──► R ──► TCR表 ──► 温度       │      │
                          │   └────────────────────────────────────────────────┘      │
@@ -190,18 +190,25 @@ ChipController 采用两层校准，互不替代：
 当前板级校准系数（`Core/Src/chip_measure.c`）：
 
 ```c
-#define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000661914f /* -0.661914 uA */
-#define CHIP_MEASURE_VOLTAGE_ZERO_V        0.00002264f     /* +22.64 uV    */
-#define CHIP_MEASURE_CURRENT_GAIN          1.000787052f
+#define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000800737f /* -0.800737 uA */
+#define CHIP_MEASURE_VOLTAGE_ZERO_V        0.000004739f    /* +4.739 uV    */
+#define CHIP_MEASURE_CURRENT_GAIN          1.000740870f
 #define CHIP_MEASURE_VOLTAGE_GAIN          1.00329f
 ```
 
 AD7190 原始码进入最外侧 5% 满量程时，固件将其判定为饱和。控制模式下该状态会锁存
 `ADC_SATURATED` 故障并立即清零 DAC，避免高增益电流通道饱和后掩盖异常电流。
 
-电流零点包含 G128 / FS480 配置下的低电流工作点修正：使用 150.002 Ω 精密电阻、
-300 µA 恒流和滤波稳定后的 775 个样本，将平均读数由约 150.03345 Ω 修正到
-150.002 Ω。该修正等效于电流读数增加约 62.84 nA。
+上述 `CURRENT_ZERO` 是 G128 / FS480 配置下的**带载有效零点**，不是开路物理零点。
+开路 `I+/I-`、短接 `V+/V-` 的 `adcs 100` 测试先得到物理零点
+`current_zero = -0.585095 µA`、`voltage_zero = +4.739 µV`；对应残差均值约为
+`I = +3.93 nA`、`V = +0.34 µV`。随后使用 150.002 Ω 精密电阻和 Qt `adcf`
+日志在 0.3–12 mA 范围做多电流拟合，得到最终电流有效零点与增益。回算各档电阻
+误差 RMS 约 1.04 mΩ、最大约 1.64 mΩ，实机复测满足当前要求。
+
+因此，最终系数下开路电流可能显示约 `+0.22 µA`；该值低于 1 µA 电阻有效门限，
+零输出时仍报告 `R = 0`。物理零点用于诊断，最终有效零点用于保证带载电阻准确度。
+完整数据、拟合方法及校准顺序见 [ADC 校准总结](docs/adc_calibration_summary.md)。
 
 ### 高阻段测量补偿
 
