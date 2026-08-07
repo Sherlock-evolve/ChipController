@@ -18,6 +18,7 @@
 #define THERMAL_CONTROL_MAX_BOARD_TEMP_C        100.0f
 #define THERMAL_CONTROL_MAX_TARGET_CURRENT_A    0.020f
 #define THERMAL_CONTROL_MAX_CURRENT_A           0.050f
+#define THERMAL_CONTROL_SOFT_LOAD_VOLTAGE_V     1.900f
 #define THERMAL_CONTROL_MAX_LOAD_VOLTAGE_V      2.000f
 #define THERMAL_CONTROL_MAX_POWER_W             0.100f
 #define THERMAL_CONTROL_CURRENT_GAIN_V_PER_A    4.0f
@@ -189,6 +190,7 @@ ThermalControl_Status ThermalControl_Service(uint32_t now_ms)
   uint32_t elapsed_ms = THERMAL_CONTROL_SERVICE_PERIOD_MS;
   float dt_s;
   uint8_t resistance_valid = 0u;
+  uint8_t soft_voltage_limited = 0u;
   ThermalControl_Status status;
 
   if ((s_snapshot.enabled == 0u) || (s_snapshot.faulted != 0u))
@@ -313,14 +315,26 @@ ThermalControl_Status ThermalControl_Service(uint32_t now_ms)
                                         target_drive_v,
                                         THERMAL_CONTROL_DRIVE_SLEW_STEP_V);
 
+  /* Use the unfiltered safety voltage so display/control filtering cannot delay
+   * the clamp. At 1.9 V, hold the present drive whenever the current loop asks
+   * for an increase; downward corrections remain available. The independent
+   * 2.0 V hard limit above still latches a fault and zeros the output. */
+  if ((safety_load_voltage_v >= THERMAL_CONTROL_SOFT_LOAD_VOLTAGE_V) &&
+      (target_drive_v > s_snapshot.drive_voltage_v))
+  {
+    target_drive_v = s_snapshot.drive_voltage_v;
+    soft_voltage_limited = 1u;
+  }
+
   status = thermal_control_apply_drive(target_drive_v);
   if (status != THERMAL_CONTROL_OK)
   {
     return thermal_control_fault(status);
   }
 
-  s_snapshot.status = THERMAL_CONTROL_OK;
-  return THERMAL_CONTROL_OK;
+  s_snapshot.status = (soft_voltage_limited != 0u) ?
+                      THERMAL_CONTROL_LIMIT_CLAMPED : THERMAL_CONTROL_OK;
+  return s_snapshot.status;
 }
 
 void ThermalControl_GetSnapshot(ThermalControl_Snapshot *snapshot)
@@ -408,6 +422,7 @@ static ThermalControl_Status thermal_control_measure(float *current_a,
   measure_status = ChipMeasure_FilterSynchronized(CHIP_MEASURE_PATH_EXTERNAL,
                                                   &raw_sample,
                                                   &s_measure_filter,
+                                                  CHIP_MEASURE_CONTROL_FILTER_ALPHA,
                                                   &filtered_sample);
   if (measure_status != CHIP_MEASURE_OK)
   {

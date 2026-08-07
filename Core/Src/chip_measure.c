@@ -21,9 +21,10 @@
  * physical zero.  The voltage zero is the open/short physical-path value. */
 #define CHIP_MEASURE_CURRENT_ZERO_A       -0.000000800737f
 #define CHIP_MEASURE_VOLTAGE_ZERO_V       0.000004739f
-/* Current gain comes from the same multi-current resistance fit.  Voltage gain
- * remains the independently established external-path voltage correction. */
-#define CHIP_MEASURE_CURRENT_GAIN         1.000740870f
+/* Current gain includes the 2026-08-07 residual trim from the first increasing
+ * 0.3-12 mA sweep with a 150.002 ohm reference.  Voltage gain remains the
+ * independently established external-path voltage correction. */
+#define CHIP_MEASURE_CURRENT_GAIN         1.000719600f
 #define CHIP_MEASURE_VOLTAGE_GAIN         1.00329f
 /* Effective voltage-sense loading compensation for U14 unbuffered conversions.
  * Keep the historical 150.007 ohm model anchor independently of the latest
@@ -342,9 +343,11 @@ void ChipMeasure_ResetSyncFilter(ChipMeasure_SyncFilter *filter)
 ChipMeasure_Status ChipMeasure_FilterSynchronized(ChipMeasure_Path path,
                                                  const ChipMeasure_SyncSample *input,
                                                  ChipMeasure_SyncFilter *filter,
+                                                 float alpha,
                                                  ChipMeasure_SyncSample *output)
 {
-  if ((input == NULL) || (filter == NULL) || (output == NULL))
+  if ((input == NULL) || (filter == NULL) || (output == NULL) ||
+      (alpha <= 0.0f) || (alpha > 1.0f))
   {
     return CHIP_MEASURE_INVALID_PARAM;
   }
@@ -363,15 +366,15 @@ ChipMeasure_Status ChipMeasure_FilterSynchronized(ChipMeasure_Path path,
   else
   {
     filter->sample.current_sense_voltage_v +=
-        CHIP_MEASURE_SYNC_FILTER_ALPHA *
+        alpha *
         (input->current_sense_voltage_v - filter->sample.current_sense_voltage_v);
     filter->sample.current_a +=
-        CHIP_MEASURE_SYNC_FILTER_ALPHA * (input->current_a - filter->sample.current_a);
+        alpha * (input->current_a - filter->sample.current_a);
     filter->sample.load_voltage_raw_v +=
-        CHIP_MEASURE_SYNC_FILTER_ALPHA *
+        alpha *
         (input->load_voltage_raw_v - filter->sample.load_voltage_raw_v);
     filter->sample.load_voltage_v +=
-        CHIP_MEASURE_SYNC_FILTER_ALPHA * (input->load_voltage_v - filter->sample.load_voltage_v);
+        alpha * (input->load_voltage_v - filter->sample.load_voltage_v);
     filter->sample.current_adc_status = input->current_adc_status;
     filter->sample.voltage_adc_status = input->voltage_adc_status;
   }
@@ -398,7 +401,11 @@ ChipMeasure_Status ChipMeasure_ReadSynchronizedFiltered(ChipMeasure_Path path,
     return status;
   }
 
-  return ChipMeasure_FilterSynchronized(path, &raw_sample, filter, sample);
+  return ChipMeasure_FilterSynchronized(path,
+                                        &raw_sample,
+                                        filter,
+                                        CHIP_MEASURE_DISPLAY_FILTER_ALPHA,
+                                        sample);
 }
 
 ChipMeasure_Status ChipMeasure_ReadInternalR42(ChipMeasure_R42Sample *sample)

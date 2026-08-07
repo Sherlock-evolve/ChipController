@@ -17,9 +17,12 @@ extern "C" {
 #include "ad7190.h"
 #include <stdint.h>
 
-/* Alpha=0.05 has an e-folding time of approximately 19.5 samples: about 9.7 s
+/* Keep control response and displayed/logged noise suppression independent.
+ * At 500 ms/control sample, alpha=0.25 has an e-folding time of about 1.7 s.
+ * Alpha=0.05 has an e-folding time of approximately 19.5 samples: about 9.7 s
  * at 500 ms/sample, or 16.3 s at the observed 0.834 s Qt logging cadence. */
-#define CHIP_MEASURE_SYNC_FILTER_ALPHA 0.05f
+#define CHIP_MEASURE_CONTROL_FILTER_ALPHA 0.25f
+#define CHIP_MEASURE_DISPLAY_FILTER_ALPHA 0.05f
 
 typedef enum
 {
@@ -77,6 +80,7 @@ void ChipMeasure_ResetSyncFilter(ChipMeasure_SyncFilter *filter);
 ChipMeasure_Status ChipMeasure_FilterSynchronized(ChipMeasure_Path path,
                                                  const ChipMeasure_SyncSample *input,
                                                  ChipMeasure_SyncFilter *filter,
+                                                 float alpha,
                                                  ChipMeasure_SyncSample *output);
 ChipMeasure_Status ChipMeasure_ReadSynchronizedFiltered(ChipMeasure_Path path,
                                                        ChipMeasure_SyncFilter *filter,

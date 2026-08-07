@@ -425,7 +425,7 @@ static void App_PrintAdcFilteredSamples(uint32_t count)
   BoardUart_Printf(BOARD_UART_PORT_DEBUG,
                    "AD7190 filtered samples: count=%lu alpha=%ld mpermil\r\n",
                    (unsigned long)count,
-                   (long)App_FloatToMilli(CHIP_MEASURE_SYNC_FILTER_ALPHA));
+                   (long)App_FloatToMilli(CHIP_MEASURE_DISPLAY_FILTER_ALPHA));
 
   for (index = 0u; index < count; index++)
   {
